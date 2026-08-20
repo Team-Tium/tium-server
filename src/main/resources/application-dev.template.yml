@@ -1,12 +1,12 @@
 spring:
   datasource:
     driver-class-name: com.mysql.cj.jdbc.Driver
-    url: jdbc:mysql://localhost:3306/tium?serverTimezone=Asia/Seoul&characterEncoding=UTF-8
-    username: tium_user
-    password: 1234
+    url: jdbc:mysql://{HOST}:{PORT}/{DATABASE}?serverTimezone=Asia/Seoul&characterEncoding=UTF-8
+    username: {USERNAME}
+    password: {PASSWORD}
   jpa:
     hibernate:
-      ddl-auto: update
+      ddl-auto: {JPA_DDL_AUTO}
     properties:
       hibernate:
         format_sql: true

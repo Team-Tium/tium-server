@@ -1,0 +1,27 @@
+spring:
+  config:
+    import: optional:file:.env[.properties]
+  application:
+    name: tium
+  jpa:
+    properties:
+      hibernate:
+        default_batch_fetch_size: 100
+  http:
+    clients:
+      connect-timeout: 3s
+      read-timeout: 5s
+  profiles:
+    active: ${SPRING_PROFILES_ACTIVE:prod}
+  data:
+    redis:
+      url: ${REDIS_URL:redis://localhost:6379}
+      connect-timeout: ${REDIS_CONNECT_TIMEOUT:2s}
+      timeout: ${REDIS_COMMAND_TIMEOUT:2s}
+
+server:
+  port: ${SERVER_PORT:8080}
+
+logging:
+  pattern:
+    console: "%d{yyyy-MM-dd'T'HH:mm:ss.SSSXXX} %-5level [%thread] requestId=%X{requestId:-N/A} %logger{36} - %msg%n"

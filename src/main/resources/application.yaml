@@ -25,3 +25,9 @@ server:
 logging:
   pattern:
     console: "%d{yyyy-MM-dd'T'HH:mm:ss.SSSXXX} %-5level [%thread] requestId=%X{requestId:-N/A} %logger{36} - %msg%n"
+
+
+jwt:
+  secret: ${JWT_SECRET}
+  access-token-expiration: ${JWT_ACCESS_EXPIRATION:30m}
+  refresh-token-expiration: ${JWT_REFRESH_EXPIRATION:14d}

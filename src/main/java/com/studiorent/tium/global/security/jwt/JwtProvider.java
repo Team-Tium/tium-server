@@ -19,6 +19,8 @@ import java.util.Date;
 @RequiredArgsConstructor
 public class JwtProvider {
 
+    private static final String TOKEN_TYPE_CLAIM = "type";
+
     private final JwtProperties jwtProperties;
 
     private SecretKey key;
@@ -29,28 +31,37 @@ public class JwtProvider {
     }
 
     public String createAccessToken(Long memberId) {
-        return createToken(memberId, jwtProperties.accessTokenExpiration());
+        return createToken(memberId, TokenType.ACCESS, jwtProperties.accessTokenExpiration());
     }
 
     public String createRefreshToken(Long memberId) {
-        return createToken(memberId, jwtProperties.refreshTokenExpiration());
+        return createToken(memberId, TokenType.REFRESH, jwtProperties.refreshTokenExpiration());
     }
 
-    private String createToken(Long memberId, Duration expiration) {
+    private String createToken(Long memberId, TokenType tokenType, Duration expiration) {
         Instant now = Instant.now();
 
         return Jwts.builder()
                 .subject(memberId.toString())
+                .claim(TOKEN_TYPE_CLAIM, tokenType.name())
                 .signWith(key)
                 .issuedAt(Date.from(now))
                 .expiration(Date.from(now.plus(expiration)))
                 .compact();
     }
 
-    public boolean validateToken(String token) {
+    public boolean validateAccessToken(String token) {
+        return validate(token, TokenType.ACCESS);
+    }
+
+    public boolean validateRefreshToken(String token) {
+        return validate(token, TokenType.REFRESH);
+    }
+
+    private boolean validate(String token, TokenType expectedType) {
         try {
-            parseClaims(token);
-            return true;
+            Claims claims = parseClaims(token);
+            return hasType(claims, expectedType) && hasNumericSubject(claims);
         } catch (JwtException | IllegalArgumentException e) {
             return false;
         }
@@ -69,6 +80,19 @@ public class JwtProvider {
 
     public Long getMemberId(String token) {
         return Long.valueOf(parseClaims(token).getSubject());
+    }
+
+    private boolean hasType(Claims claims, TokenType expectedType) {
+        return expectedType.name().equals(claims.get(TOKEN_TYPE_CLAIM, String.class));
+    }
+
+    private boolean hasNumericSubject(Claims claims) {
+        try {
+            Long.valueOf(claims.getSubject());
+            return true;
+        } catch (NumberFormatException | NullPointerException e) {
+            return false;
+        }
     }
 
     private Claims parseClaims(String token) {

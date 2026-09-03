@@ -15,6 +15,10 @@ public class AuthConverter {
                 .build();
     }
 
+    public static AuthResponseDTO.ReissueResultDTO toReissueResult(String accessToken, String refreshToken) {
+        return new AuthResponseDTO.ReissueResultDTO(accessToken, refreshToken);
+    }
+
     public static AuthResponseDTO.LoginResultDTO toLoginResult(Member member,
                                                                String accessToken,
                                                                String refreshToken,

@@ -56,6 +56,46 @@ public class AuthCommandServiceImpl implements AuthCommandService {
         return AuthConverter.toLoginResult(member, accessToken, refreshToken, isNewMember);
     }
 
+    @Override
+    @Transactional
+    public AuthResponseDTO.ReissueResultDTO reissue(AuthRequestDTO.ReissueDTO request) {
+        String refreshToken = resolveRefreshToken(request);
+
+        if (jwtProvider.isExpired(refreshToken)) {
+            throw new BusinessException(ErrorStatus.AUTH_EXPIRED_REFRESH_TOKEN);
+        }
+        if (!jwtProvider.validateRefreshToken(refreshToken)) {
+            throw new BusinessException(ErrorStatus.AUTH_INVALID_REFRESH_TOKEN);
+        }
+
+        Long memberId = jwtProvider.getMemberId(refreshToken);
+
+        if (!refreshTokenService.matches(memberId, refreshToken)) {
+            throw new BusinessException(ErrorStatus.AUTH_INVALID_REFRESH_TOKEN);
+        }
+
+        String newAccessToken = jwtProvider.createAccessToken(memberId);
+        String newRefreshToken = jwtProvider.createRefreshToken(memberId);
+
+        refreshTokenService.save(memberId, newRefreshToken,
+                LocalDateTime.now().plus(jwtProperties.refreshTokenExpiration()));
+
+        return AuthConverter.toReissueResult(newAccessToken, newRefreshToken);
+    }
+
+    @Override
+    @Transactional
+    public void logout(Long memberId) {
+        refreshTokenService.delete(memberId);
+    }
+
+    private String resolveRefreshToken(AuthRequestDTO.ReissueDTO request) {
+        if (request == null || !StringUtils.hasText(request.refreshToken())) {
+            throw new BusinessException(ErrorStatus.AUTH_INVALID_REFRESH_TOKEN);
+        }
+        return request.refreshToken();
+    }
+
     private String resolveAuthorizationCode(AuthRequestDTO.LoginDTO request) {
         if (request == null || !StringUtils.hasText(request.authorizationCode())) {
             throw new BusinessException(ErrorStatus.AUTH_SOCIAL_CREDENTIAL_REQUIRED);

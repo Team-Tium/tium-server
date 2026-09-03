@@ -6,4 +6,8 @@ import com.studiorent.tium.domain.auth.dto.AuthResponseDTO;
 public interface AuthCommandService {
 
     AuthResponseDTO.LoginResultDTO login(String provider, AuthRequestDTO.LoginDTO request);
+
+    AuthResponseDTO.ReissueResultDTO reissue(AuthRequestDTO.ReissueDTO request);
+
+    void logout(Long memberId);
 }

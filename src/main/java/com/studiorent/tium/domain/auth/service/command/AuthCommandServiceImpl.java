@@ -74,6 +74,14 @@ public class AuthCommandServiceImpl implements AuthCommandService {
             throw new BusinessException(ErrorStatus.AUTH_INVALID_REFRESH_TOKEN);
         }
 
+        Member member = memberRepository.findById(memberId)
+                .orElseThrow(() -> new BusinessException(ErrorStatus.AUTH_INVALID_REFRESH_TOKEN));
+
+        if (member.isWithdrawn()) {
+            refreshTokenService.delete(memberId);
+            throw new BusinessException(ErrorStatus.AUTH_INVALID_REFRESH_TOKEN);
+        }
+
         String newAccessToken = jwtProvider.createAccessToken(memberId);
         String newRefreshToken = jwtProvider.createRefreshToken(memberId);
 
@@ -87,6 +95,18 @@ public class AuthCommandServiceImpl implements AuthCommandService {
     @Transactional
     public void logout(Long memberId) {
         refreshTokenService.delete(memberId);
+    }
+
+    @Override
+    @Transactional
+    public AuthResponseDTO.WithdrawalResultDTO withdraw(Long memberId) {
+        Member member = memberRepository.findById(memberId)
+                .orElseThrow(() -> new BusinessException(ErrorStatus.AUTH_MEMBER_NOT_FOUND));
+
+        member.withdraw();
+        refreshTokenService.delete(memberId);
+
+        return AuthConverter.toWithdrawalResult(member);
     }
 
     private String resolveRefreshToken(AuthRequestDTO.ReissueDTO request) {

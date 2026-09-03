@@ -19,6 +19,10 @@ public class AuthConverter {
         return new AuthResponseDTO.ReissueResultDTO(accessToken, refreshToken);
     }
 
+    public static AuthResponseDTO.WithdrawalResultDTO toWithdrawalResult(Member member) {
+        return new AuthResponseDTO.WithdrawalResultDTO(member.getId(), member.getWithdrawnAt());
+    }
+
     public static AuthResponseDTO.LoginResultDTO toLoginResult(Member member,
                                                                String accessToken,
                                                                String refreshToken,

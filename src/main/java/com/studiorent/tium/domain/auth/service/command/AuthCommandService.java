@@ -10,4 +10,6 @@ public interface AuthCommandService {
     AuthResponseDTO.ReissueResultDTO reissue(AuthRequestDTO.ReissueDTO request);
 
     void logout(Long memberId);
+
+    AuthResponseDTO.WithdrawalResultDTO withdraw(Long memberId);
 }

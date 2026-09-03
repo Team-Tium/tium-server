@@ -20,6 +20,7 @@ import lombok.NoArgsConstructor;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.UUID;
 
 @Entity
 @Table(
@@ -94,10 +95,17 @@ public class Member extends BaseEntity {
         this.onboardingCompleted = true;
     }
 
-    /** 탈퇴 처리. 이미 탈퇴한 회원이면 최초 탈퇴 시각을 유지한다(멱등). */
+    /**
+     * 탈퇴 처리. 이미 탈퇴한 회원이면 최초 탈퇴 시각을 유지한다(멱등).
+     *
+     * providerId를 UUID로 덮어써 소셜 식별자를 파기한다.
+     * (provider, provider_id) 유니크 제약을 유지한 채 같은 소셜 계정의 재가입을 허용하기 위해서다.
+     * 덮어쓴 뒤에는 원래 계정을 되짚을 수 없으므로 재가입 이력은 추적하지 않는다.
+     */
     public void withdraw() {
         if (this.withdrawnAt == null) {
             this.withdrawnAt = LocalDateTime.now();
+            this.providerId = UUID.randomUUID().toString();
         }
     }
 

@@ -1,5 +1,7 @@
 package com.studiorent.tium.domain.auth.dto;
 
+import java.time.LocalDateTime;
+
 public class AuthResponseDTO {
 
     public record LoginResultDTO(
@@ -23,6 +25,12 @@ public class AuthResponseDTO {
             String refreshToken,
             Boolean isNewMember,
             Boolean onboardingCompleted
+    ) {
+    }
+
+    public record WithdrawalResultDTO(
+            Long memberId,
+            LocalDateTime withdrawnAt
     ) {
     }
 

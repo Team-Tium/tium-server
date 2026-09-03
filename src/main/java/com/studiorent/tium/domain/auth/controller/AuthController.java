@@ -11,6 +11,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -53,5 +54,15 @@ public class AuthController {
         authCommandService.logout(userDetails.getMemberId());
 
         return ApiResponse.onSuccess(null);
+    }
+
+    @Operation(summary = "회원탈퇴",
+            description = "회원을 탈퇴 처리하고 저장된 refresh 토큰을 삭제합니다. "
+                    + "채팅 메시지는 보존되며, 같은 소셜 계정으로 다시 로그인하면 신규 회원으로 가입됩니다.")
+    @DeleteMapping("/withdrawal")
+    public ApiResponse<AuthResponseDTO.WithdrawalResultDTO> withdraw(
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+
+        return ApiResponse.onSuccess(authCommandService.withdraw(userDetails.getMemberId()));
     }
 }

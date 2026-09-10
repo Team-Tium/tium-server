@@ -35,6 +35,10 @@ public enum ErrorStatus implements BaseCode {
     // Auth Error - 외부 연동
     AUTH_SOCIAL_SERVER_ERROR(HttpStatus.BAD_GATEWAY, "AUTH5001", "소셜 서버와의 통신에 실패했습니다."),
 
+    // Member Error - 회원
+    MEMBER_NOT_FOUND(HttpStatus.NOT_FOUND, "MEMBER4041", "존재하지 않는 회원입니다."),
+    MEMBER_WITHDRAWN(HttpStatus.NOT_FOUND, "MEMBER4042", "탈퇴한 회원입니다."),
+
     // Dev Error - 개발 전용 API
     DEV_API_FORBIDDEN(HttpStatus.FORBIDDEN, "DEV4031", "개발용 API는 운영 환경에서 사용할 수 없습니다.");
 

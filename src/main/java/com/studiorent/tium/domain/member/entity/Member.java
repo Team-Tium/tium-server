@@ -61,6 +61,13 @@ public class Member extends BaseEntity {
     @Column(name = "onboarding_completed", nullable = false)
     private boolean onboardingCompleted = false;
 
+    @Column(length = 20)
+    private String name;
+
+    /** 본인인증(PASS 등) 없이 값만 저장한다. 인증 연동은 범위 밖이다. */
+    @Column(name = "phone_number", length = 20)
+    private String phoneNumber;
+
     @Column(length = 255)
     private String address;
 
@@ -85,13 +92,34 @@ public class Member extends BaseEntity {
 
     /**
      * 온보딩 정보를 저장하고 완료 처리한다.
-     * 온보딩 화면에서 네 값을 한 번에 받는 전제이므로 부분 저장은 지원하지 않는다.
+     *
+     * null인 값은 기존 값을 그대로 둔다(부분 업데이트).
+     * 온보딩 저장 API를 프로필 수정에도 재사용하기 때문에 전량 덮어쓰기로 두지 않는다.
+     * 같은 이유로 이 메서드로는 이미 채워진 값을 null로 되돌릴 수 없다.
      */
-    public void completeOnboarding(String address, Gender gender, LocalDate birthDate, String introduction) {
-        this.address = address;
-        this.gender = gender;
-        this.birthDate = birthDate;
-        this.introduction = introduction;
+    public void updateProfile(String name, String phoneNumber, String email, String address,
+                              Gender gender, LocalDate birthDate, String introduction) {
+        if (name != null) {
+            this.name = name;
+        }
+        if (phoneNumber != null) {
+            this.phoneNumber = phoneNumber;
+        }
+        if (email != null) {
+            this.email = email;
+        }
+        if (address != null) {
+            this.address = address;
+        }
+        if (gender != null) {
+            this.gender = gender;
+        }
+        if (birthDate != null) {
+            this.birthDate = birthDate;
+        }
+        if (introduction != null) {
+            this.introduction = introduction;
+        }
         this.onboardingCompleted = true;
     }
 

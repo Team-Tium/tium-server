@@ -9,23 +9,21 @@ import io.swagger.v3.oas.annotations.security.SecurityRequirements;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-import org.springframework.context.annotation.Profile;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-@Tag(name = "Dev", description = "개발 전용 API — 운영 환경에는 등록되지 않습니다")
+@Tag(name = "Dev", description = "개발 편의용 API — 졸업프로젝트 범위라 운영 환경에도 그대로 열어둡니다")
 @RestController
 @RequestMapping("/dev/auth")
-@Profile({"dev", "local"})
 @RequiredArgsConstructor
 public class DevAuthController {
 
     private final DevAuthCommandService devAuthCommandService;
 
     @Operation(summary = "임시 토큰 발급 (개발 전용)",
-            description = "소셜 로그인을 거치지 않고 토큰을 발급받습니다. providerId에 해당하는 회원이 없으면 그 자리에서 만듭니다. dev·local 프로필에서만 등록됩니다.")
+            description = "소셜 로그인을 거치지 않고 토큰을 발급받습니다. providerId에 해당하는 회원이 없으면 그 자리에서 만듭니다. 모든 프로필에서 등록됩니다.")
     @SecurityRequirements
     @PostMapping("/token")
     public ApiResponse<AuthResponseDTO.DevTokenResultDTO> issueToken(

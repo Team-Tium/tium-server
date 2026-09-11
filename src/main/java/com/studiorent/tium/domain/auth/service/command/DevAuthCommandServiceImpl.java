@@ -9,7 +9,6 @@ import com.studiorent.tium.domain.member.repository.MemberRepository;
 import com.studiorent.tium.global.security.jwt.JwtProperties;
 import com.studiorent.tium.global.security.jwt.JwtProvider;
 import lombok.RequiredArgsConstructor;
-import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -17,7 +16,6 @@ import java.time.LocalDateTime;
 import java.util.Optional;
 
 @Service
-@Profile({"dev", "local"})
 @RequiredArgsConstructor
 public class DevAuthCommandServiceImpl implements DevAuthCommandService {
 

@@ -82,6 +82,15 @@ public class Member extends BaseEntity {
     @Column(columnDefinition = "TEXT")
     private String introduction;
 
+    /**
+     * 프로필 이미지 URL. 채팅 응답의 {@code opponent.profileImageUrl}이 이 값이다.
+     *
+     * <p>온보딩에서 받지 않고 이 값을 채우는 API도 아직 없다 — 이미지 업로드 경로가 정해지기 전까지 항상 null이다.
+     * 채팅 명세는 별도 nickname 컬럼을 두지 않고 {@code name}을 닉네임으로 쓰기로 확정했다(2026-09-10).
+     */
+    @Column(name = "profile_image_url", length = 500)
+    private String profileImageUrl;
+
     // ===== 탈퇴 =====
 
     /** 소프트 삭제. null이면 활성 회원이다. */
@@ -135,6 +144,11 @@ public class Member extends BaseEntity {
             this.withdrawnAt = LocalDateTime.now();
             this.providerId = UUID.randomUUID().toString();
         }
+    }
+
+    /** 프로필 이미지를 교체한다. 아직 호출하는 API가 없다 — 업로드 경로 확정 후 연결한다. */
+    public void updateProfileImage(String profileImageUrl) {
+        this.profileImageUrl = profileImageUrl;
     }
 
     public boolean isWithdrawn() {

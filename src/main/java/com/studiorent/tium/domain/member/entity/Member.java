@@ -61,6 +61,13 @@ public class Member extends BaseEntity {
     @Column(name = "onboarding_completed", nullable = false)
     private boolean onboardingCompleted = false;
 
+    @Column(length = 20)
+    private String name;
+
+    /** 본인인증(PASS 등) 없이 값만 저장한다. 인증 연동은 범위 밖이다. */
+    @Column(name = "phone_number", length = 20)
+    private String phoneNumber;
+
     @Column(length = 255)
     private String address;
 
@@ -75,6 +82,15 @@ public class Member extends BaseEntity {
     @Column(columnDefinition = "TEXT")
     private String introduction;
 
+    /**
+     * 프로필 이미지 URL. 채팅 응답의 {@code opponent.profileImageUrl}이 이 값이다.
+     *
+     * <p>온보딩에서 받지 않고 이 값을 채우는 API도 아직 없다 — 이미지 업로드 경로가 정해지기 전까지 항상 null이다.
+     * 채팅 명세는 별도 nickname 컬럼을 두지 않고 {@code name}을 닉네임으로 쓰기로 확정했다(2026-09-10).
+     */
+    @Column(name = "profile_image_url", length = 500)
+    private String profileImageUrl;
+
     // ===== 탈퇴 =====
 
     /** 소프트 삭제. null이면 활성 회원이다. */
@@ -85,13 +101,34 @@ public class Member extends BaseEntity {
 
     /**
      * 온보딩 정보를 저장하고 완료 처리한다.
-     * 온보딩 화면에서 네 값을 한 번에 받는 전제이므로 부분 저장은 지원하지 않는다.
+     *
+     * null인 값은 기존 값을 그대로 둔다(부분 업데이트).
+     * 온보딩 저장 API를 프로필 수정에도 재사용하기 때문에 전량 덮어쓰기로 두지 않는다.
+     * 같은 이유로 이 메서드로는 이미 채워진 값을 null로 되돌릴 수 없다.
      */
-    public void completeOnboarding(String address, Gender gender, LocalDate birthDate, String introduction) {
-        this.address = address;
-        this.gender = gender;
-        this.birthDate = birthDate;
-        this.introduction = introduction;
+    public void updateProfile(String name, String phoneNumber, String email, String address,
+                              Gender gender, LocalDate birthDate, String introduction) {
+        if (name != null) {
+            this.name = name;
+        }
+        if (phoneNumber != null) {
+            this.phoneNumber = phoneNumber;
+        }
+        if (email != null) {
+            this.email = email;
+        }
+        if (address != null) {
+            this.address = address;
+        }
+        if (gender != null) {
+            this.gender = gender;
+        }
+        if (birthDate != null) {
+            this.birthDate = birthDate;
+        }
+        if (introduction != null) {
+            this.introduction = introduction;
+        }
         this.onboardingCompleted = true;
     }
 
@@ -107,6 +144,11 @@ public class Member extends BaseEntity {
             this.withdrawnAt = LocalDateTime.now();
             this.providerId = UUID.randomUUID().toString();
         }
+    }
+
+    /** 프로필 이미지를 교체한다. 아직 호출하는 API가 없다 — 업로드 경로 확정 후 연결한다. */
+    public void updateProfileImage(String profileImageUrl) {
+        this.profileImageUrl = profileImageUrl;
     }
 
     public boolean isWithdrawn() {

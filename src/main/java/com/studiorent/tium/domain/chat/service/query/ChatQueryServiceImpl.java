@@ -1,6 +1,6 @@
 package com.studiorent.tium.domain.chat.service.query;
 
-import com.studiorent.tium.domain.chat.repository.ChatRepository;
+import com.studiorent.tium.domain.chat.repository.ChatRoomRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -8,5 +8,5 @@ import org.springframework.stereotype.Service;
 @RequiredArgsConstructor
 public class ChatQueryServiceImpl implements ChatQueryService {
 
-    private final ChatRepository chatRepository;
+    private final ChatRoomRepository chatRoomRepository;
 }

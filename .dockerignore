@@ -5,6 +5,7 @@ build/
 # 비밀 정보는 이미지에 들어가면 안 된다
 .env
 src/main/resources/application-dev.yml
+src/main/resources/application-prod.yml
 
 .git/
 .github/

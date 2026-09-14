@@ -1,19 +1,41 @@
 # 프로덕션 배포용. 로컬 개발용 docker-compose.yml과는 별개 파일이다.
 # DB는 RDS(MySQL)를 그대로 바라보므로 앱 컨테이너 하나만 띄운다. Redis는 이번 범위에 없다.
+#
+# prod 설정은 application-prod.yml 없이 여기 환경변수로만 넣는다.
+# SPRING_DATASOURCE_URL 같은 이름은 Spring이 spring.datasource.url로 알아서 매핑한다.
+# 비밀값은 EC2의 /opt/tium/.env에서 오며, 배포 스크립트가 --env-file로 넘겨준다.
 services:
   app:
-    # 배포 스크립트가 DOCKER_IMAGE 환경변수로 태그를 주입한다
-    image: ${DOCKER_IMAGE}
+    # 배포 스크립트가 DOCKER_IMAGE로 태그를 주입한다. 비어 있으면 즉시 멈춘다
+    image: ${DOCKER_IMAGE:?DOCKER_IMAGE is required}
     container_name: tium-server
 
-    # EC2에 이미 있는 환경변수 파일을 그대로 재사용한다 (DB_URL, DB_USERNAME, DB_PASSWORD, JWT_SECRET)
+    # /opt/tium/.env의 나머지 키(예: 나중에 추가될 KAKAO_CLIENT_ID)도 그대로 흘려보낸다
     env_file:
       - /opt/tium/.env
 
     environment:
-      SPRING_PROFILES_ACTIVE: prod
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-prod}
+      SERVER_PORT: ${SERVER_PORT:-8080}
       TZ: Asia/Seoul
 
+      # 값이 비면 컨테이너가 뜨기 전에 배포가 멈춘다. 앱이 뜨다 죽는 것보다 원인이 분명하다
+      SPRING_DATASOURCE_DRIVER_CLASS_NAME: com.mysql.cj.jdbc.Driver
+      SPRING_DATASOURCE_URL: ${DB_URL:?DB_URL is required}
+      SPRING_DATASOURCE_USERNAME: ${DB_USERNAME:?DB_USERNAME is required}
+      SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD is required}
+
+      SPRING_JPA_HIBERNATE_DDL_AUTO: ${JPA_DDL_AUTO:-update}
+      SPRING_JPA_OPEN_IN_VIEW: "false"
+      SPRING_JPA_PROPERTIES_HIBERNATE_FORMAT_SQL: "false"
+      LOGGING_LEVEL_ORG_HIBERNATE_SQL: info
+
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
+      JWT_ACCESS_EXPIRATION: ${JWT_ACCESS_EXPIRATION:-30m}
+      JWT_REFRESH_EXPIRATION: ${JWT_REFRESH_EXPIRATION:-14d}
+
+    # 프론트가 EC2 퍼블릭 IP로 직접 붙으므로 0.0.0.0에 연다.
+    # 앞단에 nginx를 두게 되면 127.0.0.1로 좁히는 편이 낫다
     ports:
       - "8080:8080"
 

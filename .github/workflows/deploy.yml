@@ -73,9 +73,13 @@ jobs:
             # latest 대신 커밋 SHA 태그를 쓴다. latest는 pull 시점에 따라 이전 이미지가 잡힐 수 있다
             export DOCKER_IMAGE="${{ secrets.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}:${{ github.sha }}"
 
-            docker compose -f docker-compose.prod.yml pull
-            if ! docker compose -f docker-compose.prod.yml up -d --wait --wait-timeout 180; then
-              docker compose -f docker-compose.prod.yml ps --all
+            # /opt/tium/.env 는 compose 파일 옆이 아니라 절대경로에 있어서 직접 지정해야
+            # ${DB_URL:?} 같은 치환이 해석된다
+            COMPOSE="docker compose --env-file /opt/tium/.env -f docker-compose.prod.yml"
+
+            $COMPOSE pull
+            if ! $COMPOSE up -d --wait --wait-timeout 180; then
+              $COMPOSE ps --all
               docker logs --tail 200 tium-server
               exit 1
             fi

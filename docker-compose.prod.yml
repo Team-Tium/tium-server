@@ -1,0 +1,36 @@
+# 프로덕션 배포용. 로컬 개발용 docker-compose.yml과는 별개 파일이다.
+# DB는 RDS(MySQL)를 그대로 바라보므로 앱 컨테이너 하나만 띄운다. Redis는 이번 범위에 없다.
+services:
+  app:
+    # 배포 스크립트가 DOCKER_IMAGE 환경변수로 태그를 주입한다
+    image: ${DOCKER_IMAGE}
+    container_name: tium-server
+
+    # EC2에 이미 있는 환경변수 파일을 그대로 재사용한다 (DB_URL, DB_USERNAME, DB_PASSWORD, JWT_SECRET)
+    env_file:
+      - /opt/tium/.env
+
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+      TZ: Asia/Seoul
+
+    ports:
+      - "8080:8080"
+
+    restart: unless-stopped
+
+    # docker compose up --wait 가 이 헬스체크를 기준으로 기다린다
+    # 최악의 경우 start_period 40s + 10s x 12회 = 160s 로 배포 스크립트의 180s 안에 들어온다
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8080/swagger-ui/index.html"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 40s
+
+    # 디스크가 6.7GB뿐이라 로그를 방치하면 쌓인다
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"

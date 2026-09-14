@@ -32,7 +32,7 @@ public class CallCommandServiceImpl implements CallCommandService {
         call.addParticipant(memberId);
 
         for (Long participantId : resolveParticipantIds(request.participantIds())) {
-            validateMemberExists(participantId);
+            validateCallParticipantExists(participantId);
             call.addParticipant(participantId);
         }
 
@@ -62,6 +62,12 @@ public class CallCommandServiceImpl implements CallCommandService {
     private void validateMemberExists(Long memberId) {
         if (!memberRepository.existsById(memberId)) {
             throw new BusinessException(ErrorStatus.AUTH_MEMBER_NOT_FOUND);
+        }
+    }
+
+    private void validateCallParticipantExists(Long participantId) {
+        if (!memberRepository.existsById(participantId)) {
+            throw new BusinessException(CallErrorStatus.CALL_PARTICIPANT_NOT_FOUND);
         }
     }
 

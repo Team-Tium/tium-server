@@ -38,6 +38,7 @@ public class SecurityConfig {
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
 
                 .authorizeHttpRequests(auth -> auth
+                        .requestMatchers("/ws/**").permitAll()
                         .requestMatchers(HttpMethod.POST, "/auth/login/**").permitAll()
                         .requestMatchers(HttpMethod.POST, "/auth/reissue").permitAll()
                         .requestMatchers(HttpMethod.POST, "/dev/auth/token").permitAll()

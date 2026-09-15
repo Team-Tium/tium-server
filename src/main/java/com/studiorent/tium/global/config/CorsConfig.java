@@ -20,7 +20,7 @@ public class CorsConfig {
      * <p>브라우저는 {@code www} 유무를 서로 다른 origin으로 보므로 apex도 같이 넣는다.
      * apex는 아직 DNS가 연결돼 있지 않지만, 연결되는 시점에 코드 수정 없이 동작한다.
      */
-    private static final List<String> ALLOWED_ORIGIN_PATTERNS = List.of(
+    public static final List<String> ALLOWED_ORIGIN_PATTERNS = List.of(
             "http://localhost:*",
             "https://www.socialtium.site",
             "https://socialtium.site",

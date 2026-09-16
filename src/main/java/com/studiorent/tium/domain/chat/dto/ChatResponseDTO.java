@@ -1,6 +1,10 @@
 package com.studiorent.tium.domain.chat.dto;
 
+import com.studiorent.tium.domain.chat.entity.enums.MessageType;
 import io.swagger.v3.oas.annotations.media.Schema;
+
+import java.time.LocalDateTime;
+import java.util.List;
 
 public class ChatResponseDTO {
 
@@ -32,5 +36,73 @@ public class ChatResponseDTO {
 
             OpponentDTO opponent
     ) {
+    }
+
+
+    /**
+     * Get /chats 조회 결과
+     * @param rooms
+     * @param hasNext
+     * @param nextCursor
+     */
+    public record GetChatDTO(
+            List<ChatRoomDTO> rooms,
+            Boolean hasNext,
+            Long nextCursor
+    ){
+    }
+
+    public record ChatRoomDTO(
+            Long roomId,
+            Boolean opponentLeft,
+            OpponentDTO opponent,
+            LastMessageDTO lastMessage,
+            Long unreadCount
+    ){
+    }
+
+    public record LastMessageDTO(
+            Long messageId,
+            String content,
+            MessageType type,
+            LocalDateTime sentAt
+
+    ){
+    }
+
+    /** 채팅 내역 한 메시지. */
+    public record MessageDTO(
+            @Schema(description = "메시지 ID", example = "985")
+            Long messageId,
+
+            @Schema(description = "보낸 사람 ID. SYSTEM 타입은 null", example = "15")
+            Long senderId,
+
+            MessageType type,
+
+            @Schema(description = "메시지 내용. IMAGE면 이미지 URL")
+            String content,
+
+            LocalDateTime sentAt,
+
+            @Schema(description = "상대가 읽었는지. 내가 보낸 메시지에만 의미가 있다", example = "true")
+            Boolean isRead
+    ){
+    }
+
+    /**
+     * 채팅 내역 조회 결과.
+     *
+     * <p>방 화면이 한 번에 필요한 걸 모두 담는다. 목록에서 넘어오지 않고 URL로 바로 들어온 경우를
+     * 커버하려고 상대 정보까지 함께 내려준다.
+     */
+    public record GetMessagesDTO(
+            Long roomId,
+            OpponentDTO opponent,
+            Boolean opponentLeft,
+            List<MessageDTO> messages,
+            Boolean hasNext,
+            Long nextCursor
+    ){
     }
 }

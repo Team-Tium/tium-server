@@ -42,6 +42,7 @@ public enum ErrorStatus implements BaseCode {
     // Chat Error - 요청 값
     CHAT_EMPTY_CONTENT(HttpStatus.BAD_REQUEST, "CHAT4001", "메시지 내용은 비어있을 수 없습니다."),
     CHAT_SELF_ROOM_NOT_ALLOWED(HttpStatus.BAD_REQUEST, "CHAT4002", "자기 자신과는 채팅방을 만들 수 없습니다."),
+    CHAT_UNSUPPORTED_MESSAGE_TYPE(HttpStatus.BAD_REQUEST, "CHAT4003", "지원하지 않는 메시지 타입입니다."),
 
     // Chat Error - 권한
     CHAT_NOT_ROOM_MEMBER(HttpStatus.FORBIDDEN, "CHAT4031", "채팅방에 속한 사용자가 아닙니다."),

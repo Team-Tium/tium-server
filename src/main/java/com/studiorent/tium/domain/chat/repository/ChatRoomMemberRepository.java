@@ -16,6 +16,14 @@ public interface ChatRoomMemberRepository extends JpaRepository<ChatRoomMember, 
     Optional<ChatRoomMember> findByChatRoomIdAndMemberId(Long chatRoomId, Long memberId);
 
     /**
+     * 상대 참여 행만 읽는다. 전송할 때 상대가 나갔는지 보려고 쓴다.
+     *
+     * <p>{@link #findOpponent}는 회원 정보까지 조인해 오는 네이티브 쿼리라 여기엔 과하다.
+     * 1:1 방이라 내가 아닌 참여 행은 최대 하나다.
+     */
+    Optional<ChatRoomMember> findByChatRoomIdAndMemberIdNot(Long chatRoomId, Long memberId);
+
+    /**
      * 상대 참여 행과 회원 정보를 한 번에 읽는다. 내역 조회에서 상대 정보와 나감 여부를 채울 때 쓴다.
      *
      * <p>{@code member_id}에 연관 매핑이 없어 직접 조인한다. 1:1 방이라 결과는 최대 한 줄이다.

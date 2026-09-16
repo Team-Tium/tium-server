@@ -15,7 +15,7 @@ public class ChatConverter {
     private ChatConverter() {
     }
 
-    /** 명세의 nickname은 별도 컬럼이 아니라 member.name이다. */
+    /** 응답의 nickname은 별도 컬럼이 아니라 member.name을 쓴다. */
     public static ChatResponseDTO.OpponentDTO toOpponent(Member opponent) {
         return new ChatResponseDTO.OpponentDTO(
                 opponent.getId(),
@@ -31,6 +31,18 @@ public class ChatConverter {
                 chatRoom.getId(),
                 created,
                 toOpponent(opponent)
+        );
+    }
+
+    /** 방금 저장한 메시지를 전송 응답으로 옮긴다. 읽음 여부는 담지 않는다. */
+    public static ChatResponseDTO.SendMessageResultDTO toSendMessageResult(ChatMessage message) {
+        return new ChatResponseDTO.SendMessageResultDTO(
+                message.getId(),
+                message.getChatRoom().getId(),
+                message.getSenderId(),
+                message.getMessageType(),
+                message.getContent(),
+                message.getSentAt()
         );
     }
 

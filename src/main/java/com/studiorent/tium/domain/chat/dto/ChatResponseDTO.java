@@ -9,7 +9,7 @@ import java.util.List;
 public class ChatResponseDTO {
 
     /**
-     * 채팅 상대 정보. 방 생성·목록·내역 세 API가 같은 구조를 쓴다(명세 3번 API에 명시).
+     * 채팅 상대 정보. 방 생성·목록·내역 세 API가 같은 구조를 쓴다.
      *
      * <p>{@code nickname}은 별도 컬럼이 아니라 {@code member.name}이다(확정, 2026-09-10).
      * {@code profileImageUrl}은 아직 값을 채우는 API가 없어 항상 null이다.
@@ -38,6 +38,25 @@ public class ChatResponseDTO {
     ) {
     }
 
+
+    /** 메시지 전송 결과. 방금 저장된 메시지 한 건을 그대로 돌려준다. */
+    public record SendMessageResultDTO(
+            @Schema(description = "생성된 메시지 ID", example = "986")
+            Long messageId,
+
+            @Schema(description = "채팅방 ID", example = "101")
+            Long roomId,
+
+            @Schema(description = "보낸 사람 ID", example = "8")
+            Long senderId,
+
+            MessageType type,
+
+            String content,
+
+            LocalDateTime sentAt
+    ) {
+    }
 
     /**
      * Get /chats 조회 결과

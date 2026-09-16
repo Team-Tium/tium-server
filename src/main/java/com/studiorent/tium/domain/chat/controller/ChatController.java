@@ -40,6 +40,19 @@ public class ChatController {
         return ApiResponse.onSuccess(chatCommandService.createRoom(userDetails.getMemberId(), request));
     }
 
+    @Operation(summary = "메시지 보내기",
+            description = "TEXT 메시지만 받는다. 상대가 나간 방에는 보낼 수 없다(CHAT4033). "
+                    + "보내는 순간 내 읽음 포인터도 함께 옮겨가므로, 방금 보낸 메시지가 내 unreadCount에 잡히지 않는다.")
+    @PostMapping("/{roomId}/messages")
+    public ApiResponse<ChatResponseDTO.SendMessageResultDTO> sendMessage(
+            @AuthenticationPrincipal CustomUserDetails userDetails,
+            @PathVariable Long roomId,
+            @Valid @RequestBody ChatRequestDTO.SendMessageDTO request) {
+
+        return ApiResponse.onSuccess(
+                chatCommandService.sendMessage(userDetails.getMemberId(), roomId, request));
+    }
+
     @Operation(summary = "최근 대화한 채팅방 목록",
             description = "마지막 메시지 ID 내림차순으로 내려온다. 내가 나간 방과 "
                     + "메시지가 하나도 없는 방은 제외된다. 다음 페이지는 응답의 nextCursor를 cursor로 넘긴다.")
@@ -69,7 +82,7 @@ public class ChatController {
                         cursor, after, clampSize(size)));
     }
 
-    /** 명세상 최대 100이다. 음수나 0이 들어오면 PageRequest가 터지므로 아래도 막는다. */
+    /** 페이지 크기를 1~100으로 자른다. 음수나 0이 들어오면 PageRequest가 터지므로 아래도 막는다. */
     private int clampSize(int size) {
         return Math.min(Math.max(size, 1), 100);
     }

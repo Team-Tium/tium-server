@@ -17,6 +17,7 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import org.hibernate.annotations.DynamicUpdate;
 
 import java.time.LocalDateTime;
 
@@ -25,8 +26,12 @@ import java.time.LocalDateTime;
  *
  * <p>{@code leftAt}과 {@code lastReadMessageId}가 개인별 값이라 방 테이블에 넣지 않고 분리했다.
  * 소켓 SUBSCRIBE 권한 검증도 이 테이블을 본다 — 해당 방의 행이 있고 {@code leftAt}이 null이어야 구독을 허용한다.
+ *
+ * <p>바뀐 컬럼만 UPDATE한다. 읽음은 포인터를, 나가기는 나간 시각을 고치는데
+ * 전체 컬럼을 쓰면 동시에 들어온 읽음이 나간 시각을 null로 되돌린다.
  */
 @Entity
+@DynamicUpdate
 @Table(
         name = "chat_room_member",
         uniqueConstraints = @UniqueConstraint(

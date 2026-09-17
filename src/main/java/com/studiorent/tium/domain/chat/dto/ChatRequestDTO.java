@@ -29,4 +29,12 @@ public class ChatRequestDTO {
             String content
     ) {
     }
+
+    /** 읽음 처리 요청. 이 ID 이하의 상대 메시지를 모두 읽은 것으로 표시한다. */
+    public record ReadMessageDTO(
+            @NotNull(message = "마지막으로 읽은 메시지 ID는 필수입니다.")
+            @Schema(description = "여기까지 읽었다고 표시할 마지막 메시지 ID", example = "986")
+            Long lastReadMessageId
+    ) {
+    }
 }

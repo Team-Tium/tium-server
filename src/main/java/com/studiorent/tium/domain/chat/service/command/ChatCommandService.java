@@ -14,4 +14,15 @@ public interface ChatCommandService {
      */
     ChatResponseDTO.SendMessageResultDTO sendMessage(Long memberId, Long roomId,
                                                      ChatRequestDTO.SendMessageDTO request);
+
+    /**
+     * 내 읽음 포인터를 옮긴다. 저장된 값보다 작거나 같은 ID는 무시한다.
+     *
+     * @return 실제로 저장된 포인터. 무시됐으면 기존 값이다
+     */
+    ChatResponseDTO.ReadMessageResultDTO readMessages(Long memberId, Long roomId,
+                                                      ChatRequestDTO.ReadMessageDTO request);
+
+    /** 채팅방에서 나간다. 방의 활성 쌍 키도 함께 비워 같은 상대와 새 방을 만들 수 있게 한다. */
+    ChatResponseDTO.LeaveRoomResultDTO leaveRoom(Long memberId, Long roomId);
 }

@@ -115,6 +115,60 @@ public class ChatCommandServiceImpl implements ChatCommandService {
         return ChatConverter.toSendMessageResult(message);
     }
 
+    /**
+     * 읽음 포인터를 요청한 메시지까지 옮긴다.
+     *
+     * <p>메시지가 이 방에 속하는지까지 확인한다. 다른 방의 큰 ID가 통과하면 포인터가 끝까지 밀리고,
+     * 포인터는 되돌아가지 않으므로 이후 이 방에 오는 메시지가 전부 읽은 것으로 처리된다.
+     *
+     * <p>응답은 요청값이 아니라 저장된 값으로 만든다. 작은 ID가 와서 무시됐을 때
+     * 응답과 실제 상태가 어긋나지 않게 하기 위해서다.
+     */
+    @Override
+    @Transactional
+    public ChatResponseDTO.ReadMessageResultDTO readMessages(Long memberId, Long roomId,
+                                                             ChatRequestDTO.ReadMessageDTO request) {
+        ChatRoomMember me = chatRoomValidator.getJoinedMember(roomId, memberId);
+        Long messageId = request.lastReadMessageId();
+
+        if (!chatMessageRepository.existsByIdAndChatRoomId(messageId, roomId)) {
+            throw new BusinessException(ErrorStatus.CHAT_MESSAGE_NOT_FOUND);
+        }
+
+        boolean moved = me.updateLastReadMessage(messageId);
+
+        // TODO(12번): moved가 true일 때만 이 트랜잭션이 커밋된 뒤에 소켓으로 발행한다.
+        //  방 주소에 MESSAGE_READ { roomId, readerId, lastReadMessageId }.
+        return ChatConverter.toReadMessageResult(me);
+    }
+
+    /**
+     * 채팅방에서 나간다. 나가기는 되돌릴 수 없고 재입장도 없다.
+     *
+     * <p>참여자의 나간 시각 기록과 방의 활성 쌍 키 해제가 한 트랜잭션이다.
+     * 쌍 키만 남으면 같은 상대와 새 방을 만들 수 없고, 나간 시각만 남으면 활성 방이 둘 생길 수 있다.
+     *
+     * <p>상대가 나가는 순간 전송이 들어오면, 전송의 "상대가 나갔는지" 확인을 통과한 뒤에
+     * 이 트랜잭션이 커밋될 수 있다. 그러면 나간 방에 메시지 한 건이 남는다.
+     * 막으려면 전송까지 방 행에 잠금을 걸어야 해서 두지 않았다.
+     */
+    @Override
+    @Transactional
+    public ChatResponseDTO.LeaveRoomResultDTO leaveRoom(Long memberId, Long roomId) {
+        ChatRoomMember me = chatRoomValidator.getRoomMember(roomId, memberId);
+
+        if (me.hasLeft()) {
+            throw new BusinessException(ErrorStatus.CHAT_ALREADY_LEFT);
+        }
+
+        me.leave();
+        me.getChatRoom().deactivatePair();
+
+        // TODO(12번): 이 트랜잭션이 커밋된 뒤에 소켓으로 발행한다.
+        //  방 주소와 남은 상대의 개인 주소에 MEMBER_LEFT { roomId, leftMemberId }.
+        return ChatConverter.toLeaveRoomResult(me);
+    }
+
     /** 방과 참여자 2행을 함께 만든다. 이 둘은 항상 같은 트랜잭션이어야 한다. */
     private ChatRoom openRoom(Long memberId, Long opponentId) {
         ChatRoom chatRoom = chatRoomRepository.save(ChatRoom.create(memberId, opponentId));

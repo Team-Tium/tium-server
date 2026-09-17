@@ -59,6 +59,32 @@ public class ChatResponseDTO {
     }
 
     /**
+     * 읽음 처리 결과. 요청값이 아니라 실제로 저장된 포인터를 담는다.
+     * 작은 ID가 와서 무시됐으면 기존 포인터와 그 시각이 그대로 나간다.
+     */
+    public record ReadMessageResultDTO(
+            @Schema(description = "채팅방 ID", example = "101")
+            Long roomId,
+
+            @Schema(description = "처리된 마지막 읽음 메시지 ID", example = "986")
+            Long lastReadMessageId,
+
+            @Schema(description = "읽음 처리 시각")
+            LocalDateTime readAt
+    ) {
+    }
+
+    /** 채팅방 나가기 결과. */
+    public record LeaveRoomResultDTO(
+            @Schema(description = "채팅방 ID", example = "101")
+            Long roomId,
+
+            @Schema(description = "나간 시각")
+            LocalDateTime leftAt
+    ) {
+    }
+
+    /**
      * Get /chats 조회 결과
      * @param rooms
      * @param hasNext

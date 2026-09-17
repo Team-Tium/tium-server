@@ -2,6 +2,7 @@ package com.studiorent.tium.domain.chat.converter;
 
 import com.studiorent.tium.domain.chat.dto.ChatResponseDTO;
 import com.studiorent.tium.domain.chat.entity.ChatRoom;
+import com.studiorent.tium.domain.chat.entity.ChatRoomMember;
 import com.studiorent.tium.domain.chat.entity.enums.MessageType;
 import com.studiorent.tium.domain.chat.entity.ChatMessage;
 import com.studiorent.tium.domain.chat.repository.projection.ChatOpponentProjection;
@@ -43,6 +44,22 @@ public class ChatConverter {
                 message.getMessageType(),
                 message.getContent(),
                 message.getSentAt()
+        );
+    }
+
+    /** 읽음 처리 후 저장된 포인터를 응답으로 옮긴다. */
+    public static ChatResponseDTO.ReadMessageResultDTO toReadMessageResult(ChatRoomMember member) {
+        return new ChatResponseDTO.ReadMessageResultDTO(
+                member.getChatRoom().getId(),
+                member.getLastReadMessageId(),
+                member.getLastReadAt()
+        );
+    }
+
+    public static ChatResponseDTO.LeaveRoomResultDTO toLeaveRoomResult(ChatRoomMember member) {
+        return new ChatResponseDTO.LeaveRoomResultDTO(
+                member.getChatRoom().getId(),
+                member.getLeftAt()
         );
     }
 

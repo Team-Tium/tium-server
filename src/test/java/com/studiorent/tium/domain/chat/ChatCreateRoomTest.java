@@ -2,10 +2,7 @@ package com.studiorent.tium.domain.chat;
 
 import com.studiorent.tium.domain.chat.dto.ChatRequestDTO;
 import com.studiorent.tium.domain.chat.dto.ChatResponseDTO;
-import com.studiorent.tium.domain.chat.entity.ChatRoom;
-import com.studiorent.tium.domain.chat.entity.ChatRoomMember;
 import com.studiorent.tium.domain.chat.repository.ChatRoomMemberRepository;
-import com.studiorent.tium.domain.chat.repository.ChatRoomRepository;
 import com.studiorent.tium.domain.chat.service.command.ChatCommandService;
 import com.studiorent.tium.domain.member.entity.Member;
 import com.studiorent.tium.domain.member.entity.enums.Provider;
@@ -26,7 +23,6 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 class ChatCreateRoomTest {
 
     @Autowired private ChatCommandService chatCommandService;
-    @Autowired private ChatRoomRepository chatRoomRepository;
     @Autowired private ChatRoomMemberRepository chatRoomMemberRepository;
     @Autowired private MemberRepository memberRepository;
 
@@ -84,24 +80,12 @@ class ChatCreateRoomTest {
     @Test
     void 한쪽이_나간_방밖에_없으면_새_방이_만들어진다() {
         Long firstRoomId = 방을_만든다(meId, opponentId).roomId();
-        나간다(firstRoomId, meId);
+        chatCommandService.leaveRoom(meId, firstRoomId);
 
         ChatResponseDTO.CreateRoomResultDTO second = 방을_만든다(meId, opponentId);
 
         assertThat(second.created()).isTrue();
         assertThat(second.roomId()).isNotEqualTo(firstRoomId);
-    }
-
-    /** 나가기 API는 4회차 작업이라 아직 없다. 엔티티 수준으로 같은 상태를 만든다. */
-    private void 나간다(Long roomId, Long memberId) {
-        ChatRoomMember member = chatRoomMemberRepository
-                .findByChatRoomIdAndMemberId(roomId, memberId).orElseThrow();
-        member.leave();
-
-        ChatRoom room = chatRoomRepository.findById(roomId).orElseThrow();
-        room.deactivatePair();
-
-        chatRoomRepository.flush();
     }
 
     @Test

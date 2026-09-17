@@ -8,6 +8,14 @@ import java.util.List;
 
 public interface ChatMessageRepository extends JpaRepository<ChatMessage, Long> {
 
+    /**
+     * 메시지가 이 방에 속하는지 확인한다. 읽음 처리에서 쓴다.
+     *
+     * <p>존재 여부만 보면 다른 방의 큰 메시지 ID로 읽음 포인터를 끝까지 밀 수 있다.
+     * 포인터는 되돌아가지 않으므로 방 조건까지 함께 건다.
+     */
+    boolean existsByIdAndChatRoomId(Long id, Long chatRoomId);
+
     /** 첫 진입. 최신 메시지부터 내려온다. */
     List<ChatMessage> findByChatRoomIdOrderByIdDesc(Long chatRoomId, Pageable pageable);
 

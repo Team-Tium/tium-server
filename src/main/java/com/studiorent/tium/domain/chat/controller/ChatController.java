@@ -11,7 +11,9 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -51,6 +53,32 @@ public class ChatController {
 
         return ApiResponse.onSuccess(
                 chatCommandService.sendMessage(userDetails.getMemberId(), roomId, request));
+    }
+
+    @Operation(summary = "메시지 읽음 처리",
+            description = "lastReadMessageId 이하의 상대 메시지를 모두 읽음으로 표시한다. "
+                    + "이 방의 메시지가 아니면 CHAT4042. 저장된 값보다 작은 ID는 무시되며, "
+                    + "응답에는 요청값이 아니라 실제로 저장된 포인터가 내려간다.")
+    @PatchMapping("/{roomId}/read-receipts")
+    public ApiResponse<ChatResponseDTO.ReadMessageResultDTO> readMessages(
+            @AuthenticationPrincipal CustomUserDetails userDetails,
+            @PathVariable Long roomId,
+            @Valid @RequestBody ChatRequestDTO.ReadMessageDTO request) {
+
+        return ApiResponse.onSuccess(
+                chatCommandService.readMessages(userDetails.getMemberId(), roomId, request));
+    }
+
+    @Operation(summary = "채팅방 나가기",
+            description = "본인만 방에서 나가며 방은 삭제되지 않는다. 다시 들어올 수 없고, "
+                    + "상대는 이 방에 더 이상 메시지를 보낼 수 없다(CHAT4033). 이미 나간 방이면 CHAT4032. "
+                    + "같은 상대와 다시 대화하려면 채팅방 생성 API로 새 방을 만든다.")
+    @DeleteMapping("/{roomId}/member/me")
+    public ApiResponse<ChatResponseDTO.LeaveRoomResultDTO> leaveRoom(
+            @AuthenticationPrincipal CustomUserDetails userDetails,
+            @PathVariable Long roomId) {
+
+        return ApiResponse.onSuccess(chatCommandService.leaveRoom(userDetails.getMemberId(), roomId));
     }
 
     @Operation(summary = "최근 대화한 채팅방 목록",

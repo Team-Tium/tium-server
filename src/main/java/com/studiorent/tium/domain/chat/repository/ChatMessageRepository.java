@@ -28,4 +28,9 @@ public interface ChatMessageRepository extends JpaRepository<ChatMessage, Long> 
     List<ChatMessage> findByChatRoomIdAndIdGreaterThanOrderByIdAsc(Long chatRoomId,
                                                                    Long after,
                                                                    Pageable pageable);
+
+    /** senderId가 보낸 메시지 중 afterId보다 뒤에 온 것의 수. 상대의 안 읽은 수를 셀 때 쓴다. */
+    long countByChatRoomIdAndSenderIdAndIdGreaterThan(Long chatRoomId,
+                                                      Long senderId,
+                                                      Long afterId);
 }

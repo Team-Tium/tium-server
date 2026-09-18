@@ -6,4 +6,23 @@ import com.studiorent.tium.domain.chat.dto.ChatResponseDTO;
 public interface ChatCommandService {
 
     ChatResponseDTO.CreateRoomResultDTO createRoom(Long memberId, ChatRequestDTO.CreateRoomDTO request);
+
+    /**
+     * 채팅방에 메시지를 보낸다. 저장, 방의 마지막 메시지 갱신, 보낸 사람의 읽음 포인터 이동이 한 트랜잭션이다.
+     *
+     * @param roomId 보낼 방. 참여자가 아니거나 상대가 나간 방이면 예외
+     */
+    ChatResponseDTO.SendMessageResultDTO sendMessage(Long memberId, Long roomId,
+                                                     ChatRequestDTO.SendMessageDTO request);
+
+    /**
+     * 내 읽음 포인터를 옮긴다. 저장된 값보다 작거나 같은 ID는 무시한다.
+     *
+     * @return 실제로 저장된 포인터. 무시됐으면 기존 값이다
+     */
+    ChatResponseDTO.ReadMessageResultDTO readMessages(Long memberId, Long roomId,
+                                                      ChatRequestDTO.ReadMessageDTO request);
+
+    /** 채팅방에서 나간다. 방의 활성 쌍 키도 함께 비워 같은 상대와 새 방을 만들 수 있게 한다. */
+    ChatResponseDTO.LeaveRoomResultDTO leaveRoom(Long memberId, Long roomId);
 }

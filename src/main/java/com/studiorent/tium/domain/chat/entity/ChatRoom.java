@@ -14,6 +14,7 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import org.hibernate.annotations.DynamicUpdate;
 
 import java.time.LocalDateTime;
 
@@ -22,8 +23,12 @@ import java.time.LocalDateTime;
  *
  * <p>방 이름·이미지 컬럼은 두지 않는다. 목록 화면의 상대방 정보는
  * {@link ChatRoomMember} → member 조인으로 만든다.
+ *
+ * <p>바뀐 컬럼만 UPDATE한다. 전송은 마지막 메시지를, 나가기는 활성 쌍 키를 고치는데
+ * 전체 컬럼을 쓰면 동시에 들어온 쪽이 읽어둔 옛 값으로 상대의 변경을 덮어쓴다.
  */
 @Entity
+@DynamicUpdate
 @Table(
         name = "chat_room",
         uniqueConstraints = @UniqueConstraint(

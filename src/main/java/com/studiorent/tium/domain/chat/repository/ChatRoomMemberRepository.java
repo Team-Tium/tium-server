@@ -98,4 +98,7 @@ public interface ChatRoomMemberRepository extends JpaRepository<ChatRoomMember, 
     List<ChatRoomListProjection> findRoomList(@Param("memberId") Long memberId,
                                              @Param("cursor") Long cursor,
                                              @Param("limit") int limit);
+
+    /** 이 방에 참여 중이고 아직 나가지 않았는지 확인한다. 방 구독 권한 검증에서 쓴다. */
+    boolean existsByChatRoomIdAndMemberIdAndLeftAtIsNull(Long chatRoomId, Long memberId);
 }

@@ -1,6 +1,7 @@
 package com.studiorent.tium.global.response.code.status;
 
 
+import co.elastic.clients.elasticsearch.nodes.Http;
 import com.studiorent.tium.global.response.code.BaseCode;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
@@ -52,6 +53,10 @@ public enum ErrorStatus implements BaseCode {
     // Chat Error - 대상 없음
     CHAT_ROOM_NOT_FOUND(HttpStatus.NOT_FOUND, "CHAT4041", "존재하지 않는 채팅방입니다."),
     CHAT_MESSAGE_NOT_FOUND(HttpStatus.NOT_FOUND, "CHAT4042", "존재하지 않는 메시지입니다."),
+
+    // feedback error - 피드백 없음
+    FEEDBACK_NOT_FOUND(HttpStatus.NOT_FOUND, "FEEDBACK404", "피드백이 존재하지 않습니다"),
+    FEEDBACK_CRITERIA_FILE_READ_FAILED(HttpStatus.INTERNAL_SERVER_ERROR,    "FEEDBACK5001","피드백 기준 파일을 읽지 못했습니다." ),
 
     // Dev Error - 개발 전용 API
     DEV_API_FORBIDDEN(HttpStatus.FORBIDDEN, "DEV4031", "개발용 API는 운영 환경에서 사용할 수 없습니다.");

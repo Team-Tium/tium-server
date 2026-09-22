@@ -30,6 +30,25 @@ services:
       timeout: 3s
       retries: 5
 
+  elasticsearch: #RAG용 벡터 검색 DB를 Docker로 띄우는 설정
+    image: docker.elastic.co/elasticsearch/elasticsearch:9.2.0
+    container_name: tium-elasticsearch
+    ports:
+      - "9200:9200"
+    environment:
+      discovery.type: single-node
+      xpack.security.enabled: "false"
+      ES_JAVA_OPTS: "-Xms512m -Xmx512m"   #-Xms512m = 시작할 때 512MB 사용  -Xmx512m = 최대 512MB까지만 사용
+      TZ: ${TZ}                         # 시간대 가져오는 역할 TZ=Asia/Seoul
+    volumes: # Elasticsearch 데이터를 Docker 볼륨에 저장합니다.
+      - tium-elasticsearch-data:/usr/share/elasticsearch/data
+    healthcheck: # 헬스체크
+      test: ["CMD-SHELL", "curl -fs http://localhost:9200/_cluster/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
 volumes:
   tium-mysql-data:
   tium-redis-data:
+  tium-elasticsearch-data:

@@ -70,3 +70,15 @@ oauth:
     redirect-uri: ${GOOGLE_REDIRECT_URI:}
     token-uri: https://oauth2.googleapis.com/token
     user-info-uri: https://www.googleapis.com/oauth2/v3/userinfo
+
+app:
+  rag:
+    # 파일여러개를 추가할수있음
+    flow-cases-location: classpath:feedbackCritera.json
+    keyword-enricher:
+      enabled: false
+  etl:
+    pipeline:
+      init: false
+
+

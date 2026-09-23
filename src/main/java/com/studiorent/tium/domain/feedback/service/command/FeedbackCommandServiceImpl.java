@@ -1,5 +1,6 @@
 package com.studiorent.tium.domain.feedback.service.command;
 
+import com.studiorent.tium.domain.chat.service.ChatRoomValidator;
 import com.studiorent.tium.domain.feedback.converter.FeedbackConverter;
 import com.studiorent.tium.domain.feedback.dto.ConversationTurn;
 import com.studiorent.tium.domain.feedback.dto.v1.FeedbackRequestDTOv1;
@@ -17,6 +18,7 @@ import org.springframework.ai.chat.prompt.ChatOptions;
 import org.springframework.ai.chat.prompt.Prompt;
 import org.springframework.ai.rag.retrieval.search.VectorStoreDocumentRetriever;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -27,18 +29,16 @@ public class FeedbackCommandServiceImpl implements FeedbackCommandService {
 
     private final FeedbackRepository feedbackRepository;
     private final ChatClient chatClient;
-
-    /**
-     * ChatClient.Builder에 RAG Advisor들을 기본 등록해 RAG 전용 ChatClient를 만든다.
-     * 여기서 등록된 Advisor가 이후 stream/call/entity 요청마다 VectorStore 검색을 수행한다.
-     */
+    private final ChatRoomValidator chatRoomValidator;
 
     public FeedbackCommandServiceImpl(
             FeedbackRepository feedbackRepository,
             ChatClient.Builder chatClientBuilder,
-            Advisor[] advisors
+            Advisor[] advisors,
+            ChatRoomValidator chatRoomValidator
     ) {
         this.feedbackRepository = feedbackRepository;
+        this.chatRoomValidator = chatRoomValidator;
         this.chatClient = chatClientBuilder
                 .defaultOptions(ChatOptions.builder().temperature(0.0))
                 .defaultAdvisors(advisors)
@@ -47,28 +47,21 @@ public class FeedbackCommandServiceImpl implements FeedbackCommandService {
 
 
     @Override
+    @Transactional
     public FeedbackResponseDTOv1 createFeedback(Long memberId, Long roomId, FeedbackRequestDTOv1 request) {
-        // 대화 어뎁터 추가하고
-        // 대화방 Id 넣어서 추가하는느낌
-        Prompt prompt = createConversationFeedbackPrompt(request);// prompt 부분 제작
-        FeedbackResponseDTOv1 result = entity(// prompt랑 feedback 받을 내용 줌으로써 결과를 많듬
+        chatRoomValidator.getJoinedMember(roomId, memberId);
+
+        Prompt prompt = createConversationFeedbackPrompt(request);
+        FeedbackResponseDTOv1 result = entity(
                 prompt,
                 buildFlowCaseFilter(request.relationship()),
                 FeedbackResponseDTOv1.class);
 
-        Feedback feedback  = FeedbackConverter.toFeedback(result);
+        Feedback feedback = FeedbackConverter.toFeedback(memberId, roomId, result);
         feedbackRepository.save(feedback);
 
-        return  result;
+        return result;
     }
-
-
-
-
-
-
-
-
     /**
      * LLM 응답을 지정한 Java 타입으로 변환해서 받는다.
      * /rag/feedback에서는 ConversationFeedbackResult record로 구조화된 피드백을 받을 때 사용한다.
@@ -84,7 +77,7 @@ public class FeedbackCommandServiceImpl implements FeedbackCommandService {
     /**
      *
      * ChatClient 요청 공통 설정을 만든다.
-     * conversationId는 대화 메모리 구분값이고, filterExpression은 VectorStore 검색 대상을 좁히는 조건이다.
+     * filterExpression은 VectorStore 검색 대상을 좁히는 조건이다.
      */
     //ChatClient.ChatClientRequestSpec를 이렇게 쓰는이유는 중첩 인터페이스라서 그렇데
     // 이렇게 한이유가 ChatClient 전용 인터페이스여서 그렇데 만약 차 = Chatclient였으면 그내부에 엔진이라는 인터페이스가 있었을것임
@@ -263,7 +256,11 @@ public class FeedbackCommandServiceImpl implements FeedbackCommandService {
                 .append(System.lineSeparator())
                 .append("중요: 흐름 문제마다 실제 입력 대화의 어떤 문장이 근거인지 확인한 뒤 작성하세요.")
                 .append(System.lineSeparator()).append(System.lineSeparator())
-                .append("관계: ").append(defaultValue(String.valueOf(feedbackBody.relationship()), "친구 or 처음만난 사이"))
+                .append("관계: ")
+                .append(defaultValue(
+                        feedbackBody.relationship() == null ? null : feedbackBody.relationship().getRagValue(),
+                        "친구 or 처음만난 사이"
+                ))
                 .append(System.lineSeparator())
                 .append("목표: ").append(defaultValue(feedbackBody.goal(), "자연스럽게 대화 이어가기"))
                 .append(System.lineSeparator()).append(System.lineSeparator())
@@ -284,9 +281,9 @@ public class FeedbackCommandServiceImpl implements FeedbackCommandService {
                 .append(System.lineSeparator())
                 .append("- overallFeedback: 전체 판정 이유. 문제가 있으면 '전반적으로 자연스럽다'라고 쓰지 말 것")
                 .append(System.lineSeparator())
-                .append("- strengths: 잘한 점 목록. 같은 의미를 반복하지 말고, 구체적인 강점이 있으면 '첫 인사는 무난했습니다' 같은 일반 문장은 생략")
+                .append("- strength: 잘한 점 목록. 같은 의미를 반복하지 말고, 구체적인 강점이 있으면 '첫 인사는 무난했습니다' 같은 일반 문장은 생략")
                 .append(System.lineSeparator())
-                .append("- flowProblems: 실제로 대화를 해치는 흐름 문제 목록. 단순히 더 깊게 물을 수 있었던 정도의 개선 가능성은 넣지 말 것")
+                .append("- flowProblem: 실제로 대화를 해치는 흐름 문제 목록. 단순히 더 깊게 물을 수 있었던 정도의 개선 가능성은 넣지 말 것")
                 .append(System.lineSeparator())
                 .append("- missedSignals: 사용자가 놓친 상대 반응이나 대화 기회")
                 .append(System.lineSeparator())
@@ -304,7 +301,7 @@ public class FeedbackCommandServiceImpl implements FeedbackCommandService {
                 .append(System.lineSeparator()).append(System.lineSeparator())
                 .append("판정 규칙:")
                 .append(System.lineSeparator())
-                .append("- flowProblems에는 실제로 대화를 해치는 문제만 넣고, 가벼운 개선 가능성은 missedSignals나 practicePoint로 보낸다.")
+                .append("- flowProblem에는 실제로 대화를 해치는 문제만 넣고, 가벼운 개선 가능성은 missedSignals나 practicePoint로 보낸다.")
                 .append(System.lineSeparator())
                 .append("- 사적인 질문, 압박, 평가, 대화 단절이 뚜렷하면 bad로 정한다.")
                 .append(System.lineSeparator())
@@ -332,7 +329,7 @@ public class FeedbackCommandServiceImpl implements FeedbackCommandService {
 
         if (relationship != null) {// 관계 확정성 때문에  해당하는 관계 넣기
 
-            conditions.add("relationship == '" + relationship.name() + "'");
+            conditions.add("relationship == '" + relationship.getRagValue() + "'");
         }
 
 

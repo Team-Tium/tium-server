@@ -1,7 +1,6 @@
 package com.studiorent.tium.global.response.code.status;
 
 
-import co.elastic.clients.elasticsearch.nodes.Http;
 import com.studiorent.tium.global.response.code.BaseCode;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
@@ -56,6 +55,7 @@ public enum ErrorStatus implements BaseCode {
 
     // feedback error - 피드백 없음
     FEEDBACK_NOT_FOUND(HttpStatus.NOT_FOUND, "FEEDBACK404", "피드백이 존재하지 않습니다"),
+    FEEDBACK_INVALID_RESPONSE(HttpStatus.INTERNAL_SERVER_ERROR, "FEEDBACK5002", "피드백 응답 형식이 올바르지 않습니다."),
     FEEDBACK_CRITERIA_FILE_READ_FAILED(HttpStatus.INTERNAL_SERVER_ERROR,    "FEEDBACK5001","피드백 기준 파일을 읽지 못했습니다." ),
 
     // Dev Error - 개발 전용 API

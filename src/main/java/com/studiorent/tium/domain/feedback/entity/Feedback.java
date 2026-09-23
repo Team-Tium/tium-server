@@ -36,6 +36,15 @@ public class Feedback extends BaseEntity {
     // 연습 포인트
     private String practicePoint;
 
+    @ElementCollection
+    private List<String> conversationPoints;
+    @Column(name = "member_id", nullable = false)
+    private Long memberId;
+
+
+    @Column(name = "room_id", nullable = false)
+    private Long roomId;
+
 
     //대화ID 추가할예정
 

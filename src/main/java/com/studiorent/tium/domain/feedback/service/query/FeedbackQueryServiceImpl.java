@@ -4,12 +4,11 @@ import com.studiorent.tium.domain.feedback.dto.v1.FeedbackResponseDTOv1;
 import com.studiorent.tium.domain.feedback.entity.Feedback;
 import com.studiorent.tium.domain.feedback.repository.FeedbackRepository;
 import com.studiorent.tium.global.exception.BusinessException;
+import com.studiorent.tium.global.response.code.status.ErrorStatus;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
-import java.util.List;
-
-import static com.studiorent.tium.global.response.code.status.ErrorStatus.FEEDBACK_NOT_FOUND;
 
 @Service
 @RequiredArgsConstructor
@@ -17,23 +16,23 @@ public class FeedbackQueryServiceImpl implements FeedbackQueryService {
 
     private final FeedbackRepository feedbackRepository;
 
+
     @Override
-    public FeedbackResponseDTOv1 feedbackFindById(Long feedbackId) {
+    @Transactional(readOnly = true)
+    public FeedbackResponseDTOv1 findByMemberIdAndRoomId(Long memberId, Long roomId) {
+        Feedback feedback =
+                feedbackRepository
+                .findTopByMemberIdAndRoomIdOrderByCreatedAtDesc(memberId, roomId)
+                .orElseThrow(() -> new BusinessException(ErrorStatus.FEEDBACK_NOT_FOUND));
 
-        Feedback feedback = feedbackRepository.findById(feedbackId)
-                .orElseThrow(() -> new BusinessException(FEEDBACK_NOT_FOUND));
 
-
-
-        return new FeedbackResponseDTOv1(
+        return  new FeedbackResponseDTOv1(
                 feedback.getOverallQuality().name(),
                 feedback.getOverallFeedback(),
                 feedback.getStrength(),
                 feedback.getFlowProblem(),
                 feedback.getPracticePoint(),
-                List.of()
+                feedback.getConversationPoints()
         );
-}
-
-
+    }
 }

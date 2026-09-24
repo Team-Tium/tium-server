@@ -1,5 +1,6 @@
 package com.studiorent.tium.domain.feedback.service.query;
 
+import com.studiorent.tium.domain.chat.service.ChatRoomValidator;
 import com.studiorent.tium.domain.feedback.dto.v1.FeedbackResponseDTOv1;
 import com.studiorent.tium.domain.feedback.entity.Feedback;
 import com.studiorent.tium.domain.feedback.repository.FeedbackRepository;
@@ -15,11 +16,14 @@ import org.springframework.transaction.annotation.Transactional;
 public class FeedbackQueryServiceImpl implements FeedbackQueryService {
 
     private final FeedbackRepository feedbackRepository;
+    private final ChatRoomValidator chatRoomValidator;
 
 
     @Override
     @Transactional(readOnly = true)
     public FeedbackResponseDTOv1 findByMemberIdAndRoomId(Long memberId, Long roomId) {
+        chatRoomValidator.getJoinedMember(roomId, memberId);
+
         Feedback feedback =
                 feedbackRepository
                 .findTopByMemberIdAndRoomIdOrderByCreatedAtDesc(memberId, roomId)

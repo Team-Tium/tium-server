@@ -1,5 +1,8 @@
 package com.studiorent.tium.domain.feedback.service.command;
 
+import com.studiorent.tium.domain.chat.entity.ChatMessage;
+import com.studiorent.tium.domain.chat.entity.enums.MessageType;
+import com.studiorent.tium.domain.chat.repository.ChatMessageRepository;
 import com.studiorent.tium.domain.chat.service.ChatRoomValidator;
 import com.studiorent.tium.domain.feedback.converter.FeedbackConverter;
 import com.studiorent.tium.domain.feedback.dto.ConversationTurn;
@@ -8,6 +11,8 @@ import com.studiorent.tium.domain.feedback.dto.v1.FeedbackResponseDTOv1;
 import com.studiorent.tium.domain.feedback.entity.Feedback;
 import com.studiorent.tium.domain.feedback.entity.enums.RelationShip;
 import com.studiorent.tium.domain.feedback.repository.FeedbackRepository;
+import com.studiorent.tium.global.exception.BusinessException;
+import com.studiorent.tium.global.response.code.status.ErrorStatus;
 import jakarta.annotation.Nullable;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.client.advisor.api.Advisor;
@@ -17,27 +22,35 @@ import org.springframework.ai.chat.messages.UserMessage;
 import org.springframework.ai.chat.prompt.ChatOptions;
 import org.springframework.ai.chat.prompt.Prompt;
 import org.springframework.ai.rag.retrieval.search.VectorStoreDocumentRetriever;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 
 @Service
 public class FeedbackCommandServiceImpl implements FeedbackCommandService {
 
+    private static final int FEEDBACK_MESSAGE_LIMIT = 100;
+
     private final FeedbackRepository feedbackRepository;
+    private final ChatMessageRepository chatMessageRepository;
     private final ChatClient chatClient;
     private final ChatRoomValidator chatRoomValidator;
 
     public FeedbackCommandServiceImpl(
             FeedbackRepository feedbackRepository,
+            ChatMessageRepository chatMessageRepository,
             ChatClient.Builder chatClientBuilder,
             Advisor[] advisors,
             ChatRoomValidator chatRoomValidator
     ) {
         this.feedbackRepository = feedbackRepository;
+        this.chatMessageRepository = chatMessageRepository;
         this.chatRoomValidator = chatRoomValidator;
         this.chatClient = chatClientBuilder
                 .defaultOptions(ChatOptions.builder().temperature(0.0))
@@ -49,19 +62,55 @@ public class FeedbackCommandServiceImpl implements FeedbackCommandService {
     @Override
     @Transactional
     public FeedbackResponseDTOv1 createFeedback(Long memberId, Long roomId, FeedbackRequestDTOv1 request) {
+        FeedbackRequestDTOv1 feedbackRequest = request == null ? FeedbackRequestDTOv1.empty() : request;
+
+        // 피드백은 로그인한 사용자가 실제로 참여 중인 채팅방에 대해서만 생성할 수 있다.
         chatRoomValidator.getJoinedMember(roomId, memberId);
 
-        Prompt prompt = createConversationFeedbackPrompt(request);
+        // 프론트에서 대화 내용을 받지 않고, roomId로 저장된 채팅 메시지를 직접 가져온다.
+        List<ConversationTurn> conversation = getConversationFromChatMessages(memberId, roomId);
+
+        Prompt prompt = createConversationFeedbackPrompt(feedbackRequest, conversation);
         FeedbackResponseDTOv1 result = entity(
                 prompt,
-                buildFlowCaseFilter(request.relationship()),
+                buildFlowCaseFilter(feedbackRequest.relationship()),
                 FeedbackResponseDTOv1.class);
+
+        if (result == null) {
+            throw new BusinessException(ErrorStatus.FEEDBACK_INVALID_RESPONSE);
+        }
 
         Feedback feedback = FeedbackConverter.toFeedback(memberId, roomId, result);
         feedbackRepository.save(feedback);
 
         return result;
     }
+
+    private List<ConversationTurn> getConversationFromChatMessages(Long memberId, Long roomId) {
+        // 피드백은 대화 전체 흐름을 어느 정도 봐야 하므로 최근 메시지 100개를 기준으로 분석한다.
+        Pageable limit = PageRequest.of(0, FEEDBACK_MESSAGE_LIMIT);
+        List<ChatMessage> messages = new ArrayList<>(
+                chatMessageRepository.findByChatRoomIdOrderByIdDesc(roomId, limit));
+
+        // Repository는 최신순으로 가져오므로, LLM에는 실제 대화 순서인 오래된순으로 넘긴다.
+        Collections.reverse(messages);
+
+        List<ConversationTurn> conversation = messages.stream()
+                .filter(message -> message.getMessageType() == MessageType.TEXT)
+                .filter(message -> !message.isDeleted())
+                .map(message -> new ConversationTurn(
+                        // 현재 로그인한 사용자의 메시지는 me, 상대 메시지는 other로 고정한다.
+                        message.isSentBy(memberId) ? "me" : "other",
+                        message.getContent()))
+                .toList();
+
+        if (conversation.isEmpty()) {
+            throw new BusinessException(ErrorStatus.FEEDBACK_CONVERSATION_EMPTY);
+        }
+
+        return conversation;
+    }
+
     /**
      * LLM 응답을 지정한 Java 타입으로 변환해서 받는다.
      * /rag/feedback에서는 ConversationFeedbackResult record로 구조화된 피드백을 받을 때 사용한다.
@@ -241,7 +290,8 @@ public class FeedbackCommandServiceImpl implements FeedbackCommandService {
            """;
 
 
-        private static Prompt createConversationFeedbackPrompt(FeedbackRequestDTOv1 feedbackBody) {
+        private static Prompt createConversationFeedbackPrompt(FeedbackRequestDTOv1 feedbackBody,
+                                                              List<ConversationTurn> conversation) {
         List<Message> messages = new ArrayList<>(); //LLM에게 보낼 시스템 프롬프트를  넣는곳 MESSAGE
         messages.add(new SystemMessage(DEFAULT_SYSTEM_PROMPT));  // LLM에게 페르소나 입력
 
@@ -267,7 +317,7 @@ public class FeedbackCommandServiceImpl implements FeedbackCommandService {
                 .append("대화:")
                 .append(System.lineSeparator());
 
-        for (ConversationTurn turn : feedbackBody.conversation()) {
+        for (ConversationTurn turn : conversation) {
             userPrompt.append(turn.speaker())
                     .append(": ")
                     .append(turn.message())
@@ -285,23 +335,15 @@ public class FeedbackCommandServiceImpl implements FeedbackCommandService {
                 .append(System.lineSeparator())
                 .append("- flowProblem: 실제로 대화를 해치는 흐름 문제 목록. 단순히 더 깊게 물을 수 있었던 정도의 개선 가능성은 넣지 말 것")
                 .append(System.lineSeparator())
-                .append("- missedSignals: 사용자가 놓친 상대 반응이나 대화 기회")
-                .append(System.lineSeparator())
-                .append("  missedSignals에는 문제 태그를 쓰지 말고, 실제 상대 발화에 대한 놓친 기회를 문장으로 쓰세요.")
-                .append(System.lineSeparator())
-                .append("- betterFlow: speaker와 message를 가진 더 나은 대화 흐름")
-                .append(System.lineSeparator())
-                .append("  betterFlow에서 개선 문장은 주로 speaker가 me인 문장으로 작성하세요. other는 자연스러운 예상 반응이 필요할 때만 사용하세요.")
-                .append(System.lineSeparator())
                 .append("  중요: 대화의 포인트를 찾아서 반영했다면 칭찬을 해주세요, 여기서 대화의 포인트란 대화에 언급된 단어입니다.")
                 .append(System.lineSeparator())
-                .append("  good 판정에서는  practicePoint, missedSignals, betterFlow, conversationPoints 를 비워야합니다. ")
+                .append("  good 판정에서는 practicePoint, conversationPoints 를 비워야합니다. ")
                 .append(System.lineSeparator())
                 .append("- practicePoint: 다음에 연습할 한 가지 포인트")
                 .append(System.lineSeparator()).append(System.lineSeparator())
                 .append("판정 규칙:")
                 .append(System.lineSeparator())
-                .append("- flowProblem에는 실제로 대화를 해치는 문제만 넣고, 가벼운 개선 가능성은 missedSignals나 practicePoint로 보낸다.")
+                .append("- flowProblem에는 실제로 대화를 해치는 문제만 넣고, 가벼운 개선 가능성은 practicePoint로 보낸다.")
                 .append(System.lineSeparator())
                 .append("- 사적인 질문, 압박, 평가, 대화 단절이 뚜렷하면 bad로 정한다.")
                 .append(System.lineSeparator())

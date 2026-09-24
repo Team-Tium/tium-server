@@ -48,12 +48,15 @@ public enum ErrorStatus implements BaseCode {
     CHAT_NOT_ROOM_MEMBER(HttpStatus.FORBIDDEN, "CHAT4031", "채팅방에 속한 사용자가 아닙니다."),
     CHAT_ALREADY_LEFT(HttpStatus.FORBIDDEN, "CHAT4032", "이미 나간 채팅방입니다."),
     CHAT_OPPONENT_LEFT(HttpStatus.FORBIDDEN, "CHAT4033", "상대방이 나간 채팅방입니다."),
+    CHAT_CONVERSATION_EMPTY(HttpStatus.BAD_REQUEST, "CHAT4004", "추천할 대화가 없습니다."),
 
     // Chat Error - 대상 없음
     CHAT_ROOM_NOT_FOUND(HttpStatus.NOT_FOUND, "CHAT4041", "존재하지 않는 채팅방입니다."),
     CHAT_MESSAGE_NOT_FOUND(HttpStatus.NOT_FOUND, "CHAT4042", "존재하지 않는 메시지입니다."),
+    CHAT_SUGGESTION_INVALID_RESPONSE(HttpStatus.INTERNAL_SERVER_ERROR, "CHAT5001", "답장 추천 응답 형식이 올바르지 않습니다."),
 
     // feedback error - 피드백 없음
+    FEEDBACK_CONVERSATION_EMPTY(HttpStatus.BAD_REQUEST, "FEEDBACK4001", "피드백을 생성할 대화가 없습니다."),
     FEEDBACK_NOT_FOUND(HttpStatus.NOT_FOUND, "FEEDBACK404", "피드백이 존재하지 않습니다"),
     FEEDBACK_INVALID_RESPONSE(HttpStatus.INTERNAL_SERVER_ERROR, "FEEDBACK5002", "피드백 응답 형식이 올바르지 않습니다."),
     FEEDBACK_CRITERIA_FILE_READ_FAILED(HttpStatus.INTERNAL_SERVER_ERROR,    "FEEDBACK5001","피드백 기준 파일을 읽지 못했습니다." ),

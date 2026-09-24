@@ -150,4 +150,10 @@ public class ChatResponseDTO {
             Long nextCursor
     ){
     }
+
+    /** 현재 대화 흐름에서 바로 보낼 수 있는 답장 추천 목록. */
+    public record SuggestRepliesDTO(
+            List<String> suggestions
+    ) {
+    }
 }

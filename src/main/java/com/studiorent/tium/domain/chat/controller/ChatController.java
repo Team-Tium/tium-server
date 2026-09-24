@@ -4,6 +4,7 @@ import com.studiorent.tium.domain.chat.dto.ChatRequestDTO;
 import com.studiorent.tium.domain.chat.dto.ChatResponseDTO;
 import com.studiorent.tium.domain.chat.service.command.ChatCommandService;
 import com.studiorent.tium.domain.chat.service.query.ChatQueryService;
+import com.studiorent.tium.domain.chat.service.query.ChatSuggestionService;
 import com.studiorent.tium.global.response.ApiResponse;
 import com.studiorent.tium.global.security.CustomUserDetails;
 import io.swagger.v3.oas.annotations.Operation;
@@ -29,6 +30,7 @@ public class ChatController {
 
     private final ChatCommandService chatCommandService;
     private final ChatQueryService chatQueryService;
+    private final ChatSuggestionService chatSuggestionService;
 
     @Operation(summary = "채팅방 생성",
             description = "상대와의 활성 채팅방을 확보합니다. 이미 있으면 새로 만들지 않고 그 방을 반환하며(created=false), "
@@ -108,6 +110,17 @@ public class ChatController {
         return ApiResponse.onSuccess(
                 chatQueryService.getMessages(userDetails.getMemberId(), roomId,
                         cursor, after, clampSize(size)));
+    }
+
+    @Operation(summary = "할 말 추천",
+            description = "최근 TEXT 메시지 20개를 기준으로 사용자가 바로 보낼 수 있는 답장 3개를 추천한다.")
+    @PostMapping("/{roomId}/recommendations")
+    public ApiResponse<ChatResponseDTO.SuggestRepliesDTO> recommendations(
+            @AuthenticationPrincipal CustomUserDetails userDetails,
+            @PathVariable Long roomId) {
+
+        return ApiResponse.onSuccess(
+                chatSuggestionService.suggestReplies(userDetails.getMemberId(), roomId));
     }
 
     /** 페이지 크기를 1~100으로 자른다. 음수나 0이 들어오면 PageRequest가 터지므로 아래도 막는다. */

@@ -23,8 +23,10 @@ public class FeedbackController {
     public ApiResponse<FeedbackResponseDTOv1> createConversationFeedback(
             @AuthenticationPrincipal CustomUserDetails userDetails,
             @PathVariable Long roomId,
-            @RequestBody @Valid FeedbackRequestDTOv1 request
+            @RequestBody(required = false) @Valid FeedbackRequestDTOv1 request
     ) {
+        // userId는 요청 바디로 받지 않고, 로그인 토큰에서 꺼낸 memberId를 사용한다.
+        // roomId는 URL 경로에서 받은 값이며, 서비스에서 이 유저가 해당 방 참여자인지 검증한다.
         FeedbackResponseDTOv1 result =
                 feedbackCommandService.createFeedback(userDetails.getMemberId(), roomId, request);
 

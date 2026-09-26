@@ -36,7 +36,6 @@ public class MemberCommandServiceImpl implements MemberCommandService {
         member.updateProfile(
                 request.name(),
                 request.phoneNumber(),
-                request.email(),
                 request.address(),
                 toGender(request.gender()),
                 request.birthDate(),

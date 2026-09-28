@@ -1,5 +1,6 @@
 package com.studiorent.tium.domain.call.socket;
 
+import com.studiorent.tium.domain.call.scheduling.CallTaskScheduler;
 import com.studiorent.tium.domain.call.service.command.CallDisconnectCommandService;
 import com.studiorent.tium.global.security.CustomUserDetails;
 import com.studiorent.tium.global.socket.SocketDestinations;
@@ -7,7 +8,6 @@ import jakarta.annotation.PreDestroy;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.event.EventListener;
 import org.springframework.messaging.simp.stomp.StompHeaderAccessor;
-import org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
@@ -31,8 +31,8 @@ public class CallSocketDisconnectTracker {
     private static final Duration DISCONNECT_GRACE = Duration.ofSeconds(15);
 
     private final CallDisconnectCommandService callDisconnectCommandService;
+    private final CallTaskScheduler scheduler;
 
-    private final ThreadPoolTaskScheduler scheduler = createScheduler();
     private final Map<String, Map<String, CallSubscription>> sessionSubscriptions = new ConcurrentHashMap<>();
     private final Map<CallMemberKey, Set<SubscriptionKey>> activeSubscriptions = new ConcurrentHashMap<>();
     private final Map<CallMemberKey, PendingDisconnect> pendingDisconnects = new ConcurrentHashMap<>();
@@ -107,10 +107,10 @@ public class CallSocketDisconnectTracker {
         });
     }
 
+    /** Cancels this tracker's pending disconnects before the shared CALL scheduler shuts down. */
     @PreDestroy
     public void shutdown() {
         pendingDisconnects.values().forEach(pending -> pending.future().cancel(false));
-        scheduler.shutdown();
     }
 
     /** Parses only exact /sub/call/{callId} destinations. */
@@ -188,14 +188,6 @@ public class CallSocketDisconnectTracker {
         }
 
         callDisconnectCommandService.disconnectIfStillActive(key.callId(), key.memberId(), disconnectedAt);
-    }
-
-    private static ThreadPoolTaskScheduler createScheduler() {
-        ThreadPoolTaskScheduler scheduler = new ThreadPoolTaskScheduler();
-        scheduler.setPoolSize(1);
-        scheduler.setThreadNamePrefix("call-disconnect-");
-        scheduler.initialize();
-        return scheduler;
     }
 
     private record CallSubscription(String sessionId, String subscriptionId, Long callId, Long memberId) {

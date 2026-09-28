@@ -91,7 +91,7 @@ public class CallCommandServiceImpl implements CallCommandService {
 
     /** Finds a call with its participants for lifecycle validation. */
     private Call findCall(Long callId) {
-        return callRepository.findWithParticipantsById(callId)
+        return callRepository.findWithLockById(callId)
                 .orElseThrow(() -> new BusinessException(CallErrorStatus.CALL_NOT_FOUND));
     }
 

@@ -35,7 +35,7 @@ public class CallSignalingServiceImpl implements CallSignalingService {
     @Override
     @Transactional
     public void accept(Long memberId, Long callId) {
-        Call call = findCall(callId);
+        Call call = findCallForUpdate(callId);
         validateReceiver(call, memberId);
         validateRinging(call);
 
@@ -48,7 +48,7 @@ public class CallSignalingServiceImpl implements CallSignalingService {
     @Override
     @Transactional
     public void reject(Long memberId, Long callId) {
-        Call call = findCall(callId);
+        Call call = findCallForUpdate(callId);
         validateReceiver(call, memberId);
         validateRinging(call);
 
@@ -86,6 +86,12 @@ public class CallSignalingServiceImpl implements CallSignalingService {
                         )
                 )
         );
+    }
+
+    /** Locks the call before acceptance or rejection to serialize lifecycle transitions. */
+    private Call findCallForUpdate(Long callId) {
+        return callRepository.findWithLockById(callId)
+                .orElseThrow(() -> new BusinessException(CallErrorStatus.CALL_NOT_FOUND));
     }
 
     /** Loads a call with participants for role and lifecycle validation. */

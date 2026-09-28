@@ -14,24 +14,24 @@ import java.time.LocalDateTime;
 
 @Service
 @RequiredArgsConstructor
-public class CallDisconnectCommandService {
+public class CallRingingTimeoutCommandService {
 
     private final CallRepository callRepository;
     private final ApplicationEventPublisher applicationEventPublisher;
 
-    /** Marks an active call disconnected after the socket grace period expires. */
+    /** Reloads and locks the call, canceling only if it is still active and unaccepted. */
     @Transactional
-    public void disconnectIfStillActive(Long callId, Long disconnectedMemberId, LocalDateTime disconnectedAt) {
+    public void cancelIfStillUnaccepted(Long callId) {
         callRepository.findWithLockById(callId)
                 .filter(Call::isInProgress)
-                .filter(call -> call.hasParticipant(disconnectedMemberId))
+                .filter(call -> !call.isAccepted())
                 .ifPresent(call -> {
-                    call.disconnect(disconnectedAt);
+                    call.cancel(LocalDateTime.now());
                     applicationEventPublisher.publishEvent(new CallEndedEvent(
                             call.getId(),
-                            disconnectedMemberId,
+                            call.getCallerMemberId(),
                             call.getType(),
-                            CallEndedReason.DISCONNECTED,
+                            CallEndedReason.CANCELED,
                             call.getEndAt(),
                             call.getParticipants().stream()
                                     .map(MemberCall::getMemberId)

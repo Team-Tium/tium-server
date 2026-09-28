@@ -43,7 +43,6 @@ dependencies {
     testAnnotationProcessor 'org.projectlombok:lombok'
 
 
-    implementation 'org.springframework.ai:spring-ai-starter-vector-store-elasticsearch'
     implementation("org.springframework.ai:spring-ai-vector-store:2.0.0-M6")
     implementation("org.springframework.ai:spring-ai-rag:2.0.0-M6")
     implementation("org.springframework.ai:spring-ai-starter-model-openai:2.0.0-M6")

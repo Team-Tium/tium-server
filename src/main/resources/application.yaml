@@ -28,15 +28,6 @@ spring:
         model: gpt-4.1-nano
       embedding:
         model: text-embedding-3-small
-    vectorstore:
-      elasticsearch:
-        initialize-schema: true
-        index-name: spring-ai-openai-document-index
-        dimensions: 1536
-        similarity: cosine
-
-  elasticsearch:
-    uris: http://localhost:9200 # 로컬 도커로 띄운 상용 엘라스틱서치 서버 주소
 
 server:
   port: ${SERVER_PORT:8080}
@@ -79,6 +70,6 @@ app:
       enabled: false
   etl:
     pipeline:
-      init: false
+      init: ${APP_ETL_PIPELINE_INIT:true}
 
 

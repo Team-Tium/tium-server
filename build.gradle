@@ -41,9 +41,26 @@ dependencies {
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
     testRuntimeOnly 'com.h2database:h2'
     testAnnotationProcessor 'org.projectlombok:lombok'
+
+
+    implementation("org.springframework.ai:spring-ai-vector-store:2.0.0-M6")
+    implementation("org.springframework.ai:spring-ai-rag:2.0.0-M6")
+    implementation("org.springframework.ai:spring-ai-starter-model-openai:2.0.0-M6")
 }
 
 tasks.named('test') {
     useJUnitPlatform()
     systemProperty 'spring.profiles.active', 'test'
 }
+
+
+ext {
+    set('springAiVersion', "2.0.0-M6")
+}
+
+dependencyManagement {
+    imports {
+        mavenBom "org.springframework.ai:spring-ai-bom:${springAiVersion}"
+    }
+}
+

@@ -1,7 +1,8 @@
 package com.studiorent.tium.domain.call.dto;
 
+import com.studiorent.tium.domain.call.entity.enums.CallEndedReason;
+import com.studiorent.tium.domain.call.entity.enums.CallSignalKind;
 import com.studiorent.tium.domain.call.entity.enums.CallType;
-import jakarta.validation.constraints.NotBlank;
 
 import java.time.LocalDateTime;
 
@@ -10,45 +11,40 @@ public class CallSocketDTO {
     public record IncomingCallDTO(
             Long callId,
             CallType type,
-            Long callerMemberId
+            CallerDTO caller,
+            LocalDateTime createdAt
     ) {
     }
 
-    // TODO(backlog): Accept/reject signaling is intentionally disabled because the current
-    // call UI does not require a separate accept/reject step.
-    // public record CallControlDTO(
-    //         Long callId,
-    //         CallType type,
-    //         Long senderMemberId
-    // ) {
-    // }
-
-    public record SdpDTO(
-            @NotBlank(message = "sdp is required")
-            String sdp
+    public record CallerDTO(
+            Long userId,
+            String nickname
     ) {
     }
 
-    public record SdpSignalDTO(
+    public record AcceptedDTO(
             Long callId,
-            CallType type,
-            Long senderMemberId,
-            String sdp
+            LocalDateTime acceptedAt
+    ) {
+    }
+
+    public record SignalRequestDTO(
+            CallSignalKind kind,
+            String sdp,
+            IceCandidateDTO candidate
+    ) {
+    }
+
+    public record SignalDTO(
+            Long callId,
+            Long fromMemberId,
+            CallSignalKind kind,
+            String sdp,
+            IceCandidateDTO candidate
     ) {
     }
 
     public record IceCandidateDTO(
-            @NotBlank(message = "candidate is required")
-            String candidate,
-            String sdpMid,
-            Integer sdpMLineIndex
-    ) {
-    }
-
-    public record IceCandidateSignalDTO(
-            Long callId,
-            CallType type,
-            Long senderMemberId,
             String candidate,
             String sdpMid,
             Integer sdpMLineIndex
@@ -57,8 +53,8 @@ public class CallSocketDTO {
 
     public record CallEndedDTO(
             Long callId,
-            CallType type,
-            Long endedByMemberId,
+            Long endedBy,
+            CallEndedReason reason,
             LocalDateTime endAt
     ) {
     }

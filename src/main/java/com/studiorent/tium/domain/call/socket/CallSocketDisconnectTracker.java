@@ -36,6 +36,7 @@ public class CallSocketDisconnectTracker {
     private final Map<String, Map<String, CallSubscription>> sessionSubscriptions = new ConcurrentHashMap<>();
     private final Map<CallMemberKey, Set<SubscriptionKey>> activeSubscriptions = new ConcurrentHashMap<>();
     private final Map<CallMemberKey, PendingDisconnect> pendingDisconnects = new ConcurrentHashMap<>();
+    private final Object trackingMonitor = new Object();
 
     /** Tracks active call-topic subscriptions and cancels pending disconnect termination on return. */
     @EventListener
@@ -52,14 +53,16 @@ public class CallSocketDisconnectTracker {
         }
 
         CallSubscription subscription = new CallSubscription(sessionId, subscriptionId, callId, memberId);
-        sessionSubscriptions.computeIfAbsent(sessionId, ignored -> new ConcurrentHashMap<>())
-                .put(subscriptionId, subscription);
-        activeSubscriptions.computeIfAbsent(subscription.callMemberKey(), ignored -> ConcurrentHashMap.newKeySet())
-                .add(subscription.subscriptionKey());
-        cancelPendingDisconnect(subscription.callMemberKey());
+        synchronized (trackingMonitor) {
+            sessionSubscriptions.computeIfAbsent(sessionId, ignored -> new ConcurrentHashMap<>())
+                    .put(subscriptionId, subscription);
+            activeSubscriptions.computeIfAbsent(subscription.callMemberKey(), ignored -> ConcurrentHashMap.newKeySet())
+                    .add(subscription.subscriptionKey());
+            cancelPendingDisconnect(subscription.callMemberKey());
+        }
     }
 
-    /** Removes explicit unsubscriptions from the active subscription index. */
+    /** Starts the disconnect grace period when an explicit unsubscribe removes the last active subscription. */
     @EventListener
     public void onUnsubscribe(SessionUnsubscribeEvent event) {
         StompHeaderAccessor accessor = StompHeaderAccessor.wrap(event.getMessage());
@@ -69,17 +72,19 @@ public class CallSocketDisconnectTracker {
             return;
         }
 
-        Map<String, CallSubscription> subscriptions = sessionSubscriptions.get(sessionId);
-        if (subscriptions == null) {
-            return;
-        }
+        synchronized (trackingMonitor) {
+            Map<String, CallSubscription> subscriptions = sessionSubscriptions.get(sessionId);
+            if (subscriptions == null) {
+                return;
+            }
 
-        CallSubscription subscription = subscriptions.remove(subscriptionId);
-        if (subscription != null) {
-            removeActiveSubscription(subscription);
-        }
-        if (subscriptions.isEmpty()) {
-            sessionSubscriptions.remove(sessionId, subscriptions);
+            CallSubscription subscription = subscriptions.remove(subscriptionId);
+            if (subscription != null) {
+                handleSubscriptionLoss(subscription, LocalDateTime.now());
+            }
+            if (subscriptions.isEmpty()) {
+                sessionSubscriptions.remove(sessionId, subscriptions);
+            }
         }
     }
 
@@ -92,25 +97,24 @@ public class CallSocketDisconnectTracker {
             return;
         }
 
-        Map<String, CallSubscription> removedSubscriptions = sessionSubscriptions.remove(sessionId);
-        if (removedSubscriptions == null || removedSubscriptions.isEmpty()) {
-            return;
-        }
-
-        LocalDateTime disconnectedAt = LocalDateTime.now();
-        removedSubscriptions.values().forEach(subscription -> {
-            removeActiveSubscription(subscription);
-            CallMemberKey key = subscription.callMemberKey();
-            if (!hasActiveSubscription(key)) {
-                scheduleDisconnect(key, disconnectedAt);
+        synchronized (trackingMonitor) {
+            Map<String, CallSubscription> removedSubscriptions = sessionSubscriptions.remove(sessionId);
+            if (removedSubscriptions == null || removedSubscriptions.isEmpty()) {
+                return;
             }
-        });
+
+            LocalDateTime disconnectedAt = LocalDateTime.now();
+            removedSubscriptions.values().forEach(subscription ->
+                    handleSubscriptionLoss(subscription, disconnectedAt));
+        }
     }
 
     /** Cancels this tracker's pending disconnects before the shared CALL scheduler shuts down. */
     @PreDestroy
     public void shutdown() {
-        pendingDisconnects.values().forEach(pending -> pending.future().cancel(false));
+        synchronized (trackingMonitor) {
+            pendingDisconnects.values().forEach(pending -> pending.future().cancel(false));
+        }
     }
 
     /** Parses only exact /sub/call/{callId} destinations. */
@@ -161,14 +165,24 @@ public class CallSocketDisconnectTracker {
         return subscriptions != null && !subscriptions.isEmpty();
     }
 
+    /** Removes one subscription and schedules grace only after the member loses the last one for the call. */
+    private void handleSubscriptionLoss(CallSubscription subscription, LocalDateTime disconnectedAt) {
+        removeActiveSubscription(subscription);
+        CallMemberKey key = subscription.callMemberKey();
+        if (!hasActiveSubscription(key)) {
+            scheduleDisconnect(key, disconnectedAt);
+        }
+    }
+
     /** Schedules one disconnect termination unless an earlier timer is already pending. */
     private void scheduleDisconnect(CallMemberKey key, LocalDateTime disconnectedAt) {
+        Object token = new Object();
         pendingDisconnects.computeIfAbsent(key, ignored -> {
             ScheduledFuture<?> future = scheduler.schedule(
-                    () -> completeDisconnectAfterGrace(key, disconnectedAt),
+                    () -> completeDisconnectAfterGrace(key, disconnectedAt, token),
                     Instant.now().plus(DISCONNECT_GRACE)
             );
-            return new PendingDisconnect(future);
+            return new PendingDisconnect(token, future);
         });
     }
 
@@ -181,10 +195,13 @@ public class CallSocketDisconnectTracker {
     }
 
     /** Completes a pending disconnect only if the member did not resubscribe during grace. */
-    private void completeDisconnectAfterGrace(CallMemberKey key, LocalDateTime disconnectedAt) {
-        PendingDisconnect pending = pendingDisconnects.remove(key);
-        if (pending == null || hasActiveSubscription(key)) {
-            return;
+    private void completeDisconnectAfterGrace(CallMemberKey key, LocalDateTime disconnectedAt, Object token) {
+        synchronized (trackingMonitor) {
+            PendingDisconnect pending = pendingDisconnects.get(key);
+            if (pending == null || pending.token() != token
+                    || !pendingDisconnects.remove(key, pending) || hasActiveSubscription(key)) {
+                return;
+            }
         }
 
         callDisconnectCommandService.disconnectIfStillActive(key.callId(), key.memberId(), disconnectedAt);
@@ -206,6 +223,6 @@ public class CallSocketDisconnectTracker {
     private record SubscriptionKey(String sessionId, String subscriptionId) {
     }
 
-    private record PendingDisconnect(ScheduledFuture<?> future) {
+    private record PendingDisconnect(Object token, ScheduledFuture<?> future) {
     }
 }

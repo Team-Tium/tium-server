@@ -1,7 +1,6 @@
 package com.studiorent.tium.domain.member.dto;
 
 import io.swagger.v3.oas.annotations.media.Schema;
-import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.PastOrPresent;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
@@ -14,8 +13,9 @@ public class MemberRequestDTO {
      * 온보딩 정보 저장 요청.
      *
      * 모든 필드가 선택값이다. 보내지 않은 필드는 기존 값을 그대로 둔다.
-     * 온보딩 화면이 실제로 채우는 것은 name / birthDate / address / email / gender 다섯 개이며,
+     * 온보딩 화면이 실제로 채우는 것은 name / birthDate / address / gender 네 개이며,
      * 전부 선택으로 둔 것은 이 엔드포인트를 프로필 수정에도 재사용하기 때문이다.
+     * email은 소셜 로그인 때 받은 값으로 고정하므로 받지 않는다.
      */
     public record OnboardingProfileDTO(
             @Pattern(regexp = "^[가-힣a-zA-Z]{2,20}$", message = "이름은 2~20자의 한글 또는 영문이어야 합니다.")
@@ -30,12 +30,6 @@ public class MemberRequestDTO {
             @Schema(description = "기본주소와 상세주소를 합친 한 문자열",
                     example = "경기도 부천시 원미구 ... 101동 1001호")
             String address,
-
-            @Email(message = "이메일 형식이 올바르지 않습니다.")
-            @Size(max = 255, message = "이메일은 255자를 넘을 수 없습니다.")
-            @Schema(description = "소셜 로그인 시 받아둔 값이 있으면 여기서 수정할 수 있다.",
-                    example = "user@example.com")
-            String email,
 
             /*
              * Gender enum이 아니라 String으로 받는다.

@@ -39,7 +39,7 @@ public class MemberController {
     }
 
     @Operation(summary = "온보딩 정보 저장",
-            description = "이름·생년월일·주소·이메일·성별 등을 저장하고 온보딩을 완료 처리합니다. "
+            description = "이름·생년월일·주소·성별 등을 저장하고 온보딩을 완료 처리합니다. "
                     + "모든 필드가 선택값이고 보내지 않은 필드는 기존 값을 유지하므로, "
                     + "다시 호출하면 프로필 수정으로도 쓸 수 있습니다.")
     @PostMapping("/onboarding/profile")

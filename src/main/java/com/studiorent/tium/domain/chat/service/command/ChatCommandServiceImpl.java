@@ -11,11 +11,15 @@ import com.studiorent.tium.domain.chat.repository.ChatMessageRepository;
 import com.studiorent.tium.domain.chat.repository.ChatRoomMemberRepository;
 import com.studiorent.tium.domain.chat.repository.ChatRoomRepository;
 import com.studiorent.tium.domain.chat.service.ChatRoomValidator;
+import com.studiorent.tium.domain.chat.socket.event.ChatMemberLeftEvent;
+import com.studiorent.tium.domain.chat.socket.event.ChatMessageReadEvent;
+import com.studiorent.tium.domain.chat.socket.event.ChatMessageSentEvent;
 import com.studiorent.tium.domain.member.entity.Member;
 import com.studiorent.tium.domain.member.repository.MemberRepository;
 import com.studiorent.tium.global.exception.BusinessException;
 import com.studiorent.tium.global.response.code.status.ErrorStatus;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -30,6 +34,7 @@ public class ChatCommandServiceImpl implements ChatCommandService {
     private final ChatMessageRepository chatMessageRepository;
     private final MemberRepository memberRepository;
     private final ChatRoomValidator chatRoomValidator;
+    private final ApplicationEventPublisher applicationEventPublisher;
 
     /**
      * 채팅방을 확보한다. 이미 활성 방이 있으면 만들지 않고 그 방을 돌려준다.
@@ -109,9 +114,18 @@ public class ChatCommandServiceImpl implements ChatCommandService {
         chatRoom.updateLastMessage(message.getId(), message.getSentAt());
         me.updateLastReadMessage(message.getId());
 
-        // TODO(12번): 이 트랜잭션이 커밋된 뒤에 소켓으로 발행한다.
-        //  방 주소에 MESSAGE_CREATED, 참여자 각각의 개인 주소에 ROOM_UPDATED.
-        //  트랜잭션 안에서 보내면 뒤에서 롤백돼도 상대 화면에는 메시지가 남는다.
+        ChatMessageSentEvent event = new ChatMessageSentEvent(
+                message.getId(),
+                message.getMessageType(),
+                message.getContent(),
+                message.getSentAt(),
+                roomId,
+                opponent.getMemberId(),
+                memberId,
+                opponent.getLastReadMessageId()
+        );
+
+        applicationEventPublisher.publishEvent(event);
         return ChatConverter.toSendMessageResult(message);
     }
 
@@ -137,8 +151,11 @@ public class ChatCommandServiceImpl implements ChatCommandService {
 
         boolean moved = me.updateLastReadMessage(messageId);
 
-        // TODO(12번): moved가 true일 때만 이 트랜잭션이 커밋된 뒤에 소켓으로 발행한다.
-        //  방 주소에 MESSAGE_READ { roomId, readerId, lastReadMessageId }.
+        // 포인터가 그대로면 상대 화면에 바뀔 것이 없어 알리지 않는다.
+        if (moved) {
+            applicationEventPublisher.publishEvent(
+                    new ChatMessageReadEvent(roomId, memberId, me.getLastReadMessageId()));
+        }
         return ChatConverter.toReadMessageResult(me);
     }
 
@@ -164,8 +181,12 @@ public class ChatCommandServiceImpl implements ChatCommandService {
         me.leave();
         me.getChatRoom().deactivatePair();
 
-        // TODO(12번): 이 트랜잭션이 커밋된 뒤에 소켓으로 발행한다.
-        //  방 주소와 남은 상대의 개인 주소에 MEMBER_LEFT { roomId, leftMemberId }.
+        ChatRoomMember opponent = chatRoomMemberRepository
+                .findByChatRoomIdAndMemberIdNot(roomId, memberId)
+                .orElseThrow(() -> new BusinessException(ErrorStatus.INTERNAL_SERVER_ERROR));
+
+        applicationEventPublisher.publishEvent(
+                new ChatMemberLeftEvent(roomId, memberId, opponent.getMemberId()));
         return ChatConverter.toLeaveRoomResult(me);
     }
 

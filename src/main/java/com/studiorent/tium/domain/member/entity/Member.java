@@ -106,16 +106,13 @@ public class Member extends BaseEntity {
      * 온보딩 저장 API를 프로필 수정에도 재사용하기 때문에 전량 덮어쓰기로 두지 않는다.
      * 같은 이유로 이 메서드로는 이미 채워진 값을 null로 되돌릴 수 없다.
      */
-    public void updateProfile(String name, String phoneNumber, String email, String address,
+    public void updateProfile(String name, String phoneNumber, String address,
                               Gender gender, LocalDate birthDate, String introduction) {
         if (name != null) {
             this.name = name;
         }
         if (phoneNumber != null) {
             this.phoneNumber = phoneNumber;
-        }
-        if (email != null) {
-            this.email = email;
         }
         if (address != null) {
             this.address = address;

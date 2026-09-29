@@ -5,6 +5,8 @@ import com.studiorent.tium.domain.call.dto.CallRequestDTO;
 import com.studiorent.tium.domain.call.dto.CallResponseDTO;
 import com.studiorent.tium.domain.call.entity.Call;
 import com.studiorent.tium.domain.call.entity.MemberCall;
+import com.studiorent.tium.domain.call.entity.enums.CallEndedReason;
+import com.studiorent.tium.domain.call.entity.enums.CallStatus;
 import com.studiorent.tium.domain.call.exception.CallErrorStatus;
 import com.studiorent.tium.domain.call.repository.CallRepository;
 import com.studiorent.tium.domain.call.socket.event.CallEndedEvent;
@@ -15,10 +17,12 @@ import com.studiorent.tium.global.response.code.status.ErrorStatus;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.LinkedHashSet;
+import java.time.LocalDateTime;
 import java.util.List;
+import java.util.LinkedHashSet;
 import java.util.Set;
 
 @Service
@@ -30,42 +34,54 @@ public class CallCommandServiceImpl implements CallCommandService {
     private final ApplicationEventPublisher applicationEventPublisher;
 
     @Override
-    @Transactional
+    @Transactional(isolation = Isolation.SERIALIZABLE)
     public CallResponseDTO.CallResultDTO startCall(Long memberId, CallRequestDTO.CallStartDTO request) {
         validateMemberExists(memberId);
 
         Set<Long> participantIds = resolveOtherParticipantIds(memberId, request.participantIds());
         validateOneToOneParticipant(participantIds);
+        Long receiverMemberId = participantIds.iterator().next();
+        validateCallParticipantExists(receiverMemberId);
+        validateMembersAvailable(memberId, receiverMemberId);
 
-        Call call = Call.start(request.type());
+        Call call = Call.start(request.type(), memberId);
         call.addParticipant(memberId);
-
-        for (Long participantId : participantIds) {
-            validateCallParticipantExists(participantId);
-            call.addParticipant(participantId);
-        }
+        call.addParticipant(receiverMemberId);
 
         Call savedCall = callRepository.save(call);
-        applicationEventPublisher.publishEvent(new CallStartedEvent(savedCall.getId(), memberId));
+        applicationEventPublisher.publishEvent(new CallStartedEvent(savedCall.getId(), memberId, receiverMemberId));
 
         return CallConverter.toCallResult(savedCall);
     }
 
+    /** Ends an accepted call normally or cancels a caller-owned ringing call. */
     @Override
     @Transactional
     public CallResponseDTO.CallResultDTO endCall(Long memberId, Long callId) {
         Call call = findCall(callId);
         validateParticipant(call, memberId);
 
-        if (call.isCompleted()) {
+        if (call.isTerminal()) {
             throw new BusinessException(CallErrorStatus.CALL_ALREADY_COMPLETED);
         }
 
-        call.complete();
+        LocalDateTime endAt = LocalDateTime.now();
+        CallEndedReason reason;
+        if (call.isAccepted()) {
+            call.complete(endAt);
+            reason = CallEndedReason.HANGUP;
+        } else if (call.isCaller(memberId)) {
+            call.cancel(endAt);
+            reason = CallEndedReason.CANCELED;
+        } else {
+            throw new BusinessException(CallErrorStatus.CALL_INVALID_LIFECYCLE_ACTION);
+        }
+
         applicationEventPublisher.publishEvent(new CallEndedEvent(
                 call.getId(),
                 memberId,
                 call.getType(),
+                reason,
                 call.getEndAt(),
                 extractParticipantIds(call)
         ));
@@ -75,7 +91,7 @@ public class CallCommandServiceImpl implements CallCommandService {
 
     /** Finds a call with its participants for lifecycle validation. */
     private Call findCall(Long callId) {
-        return callRepository.findWithParticipantsById(callId)
+        return callRepository.findWithLockById(callId)
                 .orElseThrow(() -> new BusinessException(CallErrorStatus.CALL_NOT_FOUND));
     }
 
@@ -90,6 +106,16 @@ public class CallCommandServiceImpl implements CallCommandService {
     private void validateCallParticipantExists(Long participantId) {
         if (!memberRepository.existsById(participantId)) {
             throw new BusinessException(CallErrorStatus.CALL_PARTICIPANT_NOT_FOUND);
+        }
+    }
+
+    /** Rejects new calls when either 1:1 participant is already in an IN_PROGRESS call. */
+    private void validateMembersAvailable(Long callerMemberId, Long receiverMemberId) {
+        if (callRepository.countActiveCallsForAnyMember(
+                List.of(callerMemberId, receiverMemberId),
+                CallStatus.IN_PROGRESS
+        ) > 0) {
+            throw new BusinessException(CallErrorStatus.CALL_MEMBER_BUSY);
         }
     }
 

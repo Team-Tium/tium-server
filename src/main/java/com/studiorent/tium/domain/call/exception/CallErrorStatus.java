@@ -16,7 +16,8 @@ public enum CallErrorStatus implements BaseCode {
     CALL_PARTICIPANT_REQUIRED(HttpStatus.BAD_REQUEST, "CALL4003", "통화 상대가 필요합니다."),
     CALL_INVALID_SIGNALING_PAYLOAD(HttpStatus.BAD_REQUEST, "CALL4004", "통화 시그널링 값이 올바르지 않습니다."),
     CALL_TOO_MANY_PARTICIPANTS(HttpStatus.BAD_REQUEST, "CALL4005", "1:1 통화는 한 명의 상대만 지정할 수 있습니다."),
-    CALL_NOT_COMPLETED(HttpStatus.BAD_REQUEST, "CALL4006", "종료된 통화만 STT를 저장할 수 있습니다.");
+    CALL_INVALID_LIFECYCLE_ACTION(HttpStatus.BAD_REQUEST, "CALL4006", "통화 상태에서 수행할 수 없는 요청입니다."),
+    CALL_MEMBER_BUSY(HttpStatus.CONFLICT, "CALL4091", "이미 통화 중인 사용자입니다.");
 
     private final HttpStatus httpStatus;
     private final String code;

@@ -8,11 +8,5 @@ public interface CallSignalingService {
 
     void reject(Long memberId, Long callId);
 
-    void relayOffer(Long memberId, Long callId, CallSocketDTO.SdpDTO request);
-
-    void relayAnswer(Long memberId, Long callId, CallSocketDTO.SdpDTO request);
-
-    void relayIceCandidate(Long memberId, Long callId, CallSocketDTO.IceCandidateDTO request);
-
-    void end(Long memberId, Long callId);
+    void relaySignal(Long memberId, Long callId, CallSocketDTO.SignalRequestDTO request);
 }

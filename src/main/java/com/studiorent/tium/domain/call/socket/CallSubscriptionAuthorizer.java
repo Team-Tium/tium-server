@@ -18,7 +18,7 @@ public class CallSubscriptionAuthorizer implements SubscriptionAuthorizer {
         return destination != null && destination.startsWith(SocketDestinations.CALL_SUB_PREFIX + "/");
     }
 
-    /** Validates that the subscriber is a participant of the requested call destination. */
+    /** Validates that the subscriber is a participant and the call is still active. */
     @Override
     public boolean canSubscribe(Long memberId, String destination) {
         Long callId = parseCallId(destination);
@@ -27,7 +27,7 @@ public class CallSubscriptionAuthorizer implements SubscriptionAuthorizer {
         }
 
         return callRepository.findWithParticipantsById(callId)
-                .map(call -> call.hasParticipant(memberId))
+                .map(call -> call.hasParticipant(memberId) && call.isInProgress())
                 .orElse(false);
     }
 

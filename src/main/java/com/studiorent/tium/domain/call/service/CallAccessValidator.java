@@ -47,7 +47,7 @@ public class CallAccessValidator {
     public Call validateActiveParticipant(Long callId, Long memberId) {
         Call call = validateParticipant(callId, memberId);
 
-        if (!call.isInProgress()) {
+        if (call.isTerminal()) {
             throw new BusinessException(CallErrorStatus.CALL_ALREADY_COMPLETED);
         }
 

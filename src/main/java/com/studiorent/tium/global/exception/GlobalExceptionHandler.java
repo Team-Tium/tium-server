@@ -15,12 +15,17 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.http.ResponseEntity;
-import org.springframework.http.converter.HttpMessageConversionException;
 import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.http.converter.HttpMessageConversionException;
 import org.springframework.orm.jpa.JpaSystemException;
+import org.springframework.web.HttpMediaTypeNotSupportedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
+import org.springframework.web.multipart.MultipartException;
+import org.springframework.web.multipart.support.MissingServletRequestPartException;
 import org.springframework.web.context.request.WebRequest;
 import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExceptionHandler;
 
@@ -106,6 +111,72 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         return ResponseEntity
                 .status(HttpStatus.BAD_REQUEST)
                 .body(ApiResponse.onFailure(ErrorStatus.BAD_REQUEST, "잘못된 JSON 형식입니다."));
+    }
+
+    @Override
+    protected ResponseEntity<Object> handleMissingServletRequestPart(
+            MissingServletRequestPartException ex,
+            HttpHeaders headers,
+            HttpStatusCode status,
+            WebRequest request
+    ) {
+        log.warn("Missing request part: {}", ex.getRequestPartName());
+
+        ErrorStatus errorStatus = "file".equals(ex.getRequestPartName())
+                ? ErrorStatus.CALL_STT_FILE_PART_REQUIRED
+                : ErrorStatus.BAD_REQUEST;
+
+        return ResponseEntity
+                .status(errorStatus.getHttpStatus())
+                .body(ApiResponse.onFailure(errorStatus));
+    }
+
+    @Override
+    protected ResponseEntity<Object> handleHttpMediaTypeNotSupported(
+            HttpMediaTypeNotSupportedException ex,
+            HttpHeaders headers,
+            HttpStatusCode status,
+            WebRequest request
+    ) {
+        log.warn("Unsupported media type: {}", ex.getContentType());
+
+        return ResponseEntity
+                .status(ErrorStatus.CALL_STT_MULTIPART_REQUIRED.getHttpStatus())
+                .body(ApiResponse.onFailure(ErrorStatus.CALL_STT_MULTIPART_REQUIRED));
+    }
+
+    @Override
+    protected ResponseEntity<Object> handleMaxUploadSizeExceededException(
+            MaxUploadSizeExceededException ex,
+            HttpHeaders headers,
+            HttpStatusCode status,
+            WebRequest request
+    ) {
+        log.warn("Upload file too large: {}", ex.getMessage());
+
+        return ResponseEntity
+                .status(ErrorStatus.CALL_STT_FILE_TOO_LARGE.getHttpStatus())
+                .body(ApiResponse.onFailure(ErrorStatus.CALL_STT_FILE_TOO_LARGE));
+    }
+
+    @ExceptionHandler(MultipartException.class)
+    public ResponseEntity<ApiResponse<Object>> handleMultipartException(MultipartException ex) {
+        log.warn("Invalid multipart request: {}", ex.getMessage());
+
+        return ResponseEntity
+                .status(ErrorStatus.CALL_STT_MULTIPART_REQUIRED.getHttpStatus())
+                .body(ApiResponse.onFailure(ErrorStatus.CALL_STT_MULTIPART_REQUIRED));
+    }
+
+    @ExceptionHandler(MethodArgumentTypeMismatchException.class)
+    public ResponseEntity<ApiResponse<Object>> handleMethodArgumentTypeMismatchException(
+            MethodArgumentTypeMismatchException ex
+    ) {
+        log.warn("Method argument type mismatch: name={}, value={}", ex.getName(), ex.getValue());
+
+        return ResponseEntity
+                .status(ErrorStatus.BAD_REQUEST.getHttpStatus())
+                .body(ApiResponse.onFailure(ErrorStatus.BAD_REQUEST));
     }
 
     // DB 제약조건 위반

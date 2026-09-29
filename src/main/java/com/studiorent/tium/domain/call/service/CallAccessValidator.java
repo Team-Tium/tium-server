@@ -20,11 +20,26 @@ public class CallAccessValidator {
         Call call = callRepository.findWithParticipantsById(callId)
                 .orElseThrow(() -> new BusinessException(CallErrorStatus.CALL_NOT_FOUND));
 
+        validateParticipant(call, memberId);
+
+        return call;
+    }
+
+    /** Loads a call with a write lock and validates that the authenticated member participates in it. */
+    @Transactional
+    public Call validateParticipantForUpdate(Long callId, Long memberId) {
+        Call call = callRepository.findWithParticipantsByIdForUpdate(callId)
+                .orElseThrow(() -> new BusinessException(CallErrorStatus.CALL_NOT_FOUND));
+
+        validateParticipant(call, memberId);
+
+        return call;
+    }
+
+    private static void validateParticipant(Call call, Long memberId) {
         if (!call.hasParticipant(memberId)) {
             throw new BusinessException(CallErrorStatus.CALL_FORBIDDEN);
         }
-
-        return call;
     }
 
     /** Loads a call and validates that the participant can signal while the call is active. */

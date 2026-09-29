@@ -3,6 +3,10 @@ spring:
     import: optional:file:.env[.properties]
   application:
     name: tium
+  servlet:
+    multipart:
+      max-file-size: ${SPRING_SERVLET_MULTIPART_MAX_FILE_SIZE:20MB}
+      max-request-size: ${SPRING_SERVLET_MULTIPART_MAX_REQUEST_SIZE:25MB}
   jpa:
     properties:
       hibernate:
@@ -22,12 +26,22 @@ spring:
     model:
       chat: openai
       embedding: openai
+      audio:
+        transcription: openai
     openai:
       api-key: ${OPENAI_API_KEY}
       chat:
         model: gpt-4.1-nano
       embedding:
         model: text-embedding-3-small
+      audio:
+        transcription:
+          model: whisper-1
+          response-format: verbose_json
+          language: ko
+          temperature: 0
+          timestamp-granularities:
+            - segment
 
 server:
   port: ${SERVER_PORT:8080}

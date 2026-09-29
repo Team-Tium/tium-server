@@ -1,5 +1,6 @@
 package com.studiorent.tium.domain.call.service.command;
 
+import com.studiorent.tium.domain.call.converter.CallConverter;
 import com.studiorent.tium.domain.call.dto.CallSocketDTO;
 import com.studiorent.tium.domain.call.entity.Call;
 import com.studiorent.tium.domain.call.exception.CallErrorStatus;
@@ -13,6 +14,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
+import java.time.LocalDateTime;
+
 @Service
 @RequiredArgsConstructor
 public class CallSignalingServiceImpl implements CallSignalingService {
@@ -21,32 +24,28 @@ public class CallSignalingServiceImpl implements CallSignalingService {
     private final CallCommandService callCommandService;
     private final SocketEventPublisher socketEventPublisher;
 
-    /*
-    TODO(backlog): Accept/reject signaling is intentionally disabled because the current
-    call UI does not require a separate accept/reject step.
-
-    /** Publishes a transient call acceptance event after participant validation. *\/
+    /** Publishes a transient call acceptance event after participant validation. */
     @Override
     public void accept(Long memberId, Long callId) {
-        Call call = callAccessValidator.validateParticipant(callId, memberId);
-        publishToCall(callId, CallSocketEventType.CALL_ACCEPTED, new CallSocketDTO.CallControlDTO(
+        Call call = callAccessValidator.validateActiveParticipant(callId, memberId);
+        publishToCall(callId, CallSocketEventType.CALL_ACCEPTED, new CallSocketDTO.CallAcceptedDTO(
                 callId,
                 call.getType(),
-                memberId
+                memberId,
+                CallConverter.toServiceOffsetDateTime(LocalDateTime.now())
         ));
     }
 
-    /** Publishes a transient call rejection event after participant validation. *\/
+    /** Publishes a transient call rejection event after participant validation. */
     @Override
     public void reject(Long memberId, Long callId) {
-        Call call = callAccessValidator.validateParticipant(callId, memberId);
-        publishToCall(callId, CallSocketEventType.CALL_REJECTED, new CallSocketDTO.CallControlDTO(
+        Call call = callAccessValidator.validateActiveParticipant(callId, memberId);
+        publishToCall(callId, CallSocketEventType.CALL_REJECTED, new CallSocketDTO.CallRejectedDTO(
                 callId,
                 call.getType(),
                 memberId
         ));
     }
-    */
 
     /** Relays an SDP offer to call participants without interpreting or persisting SDP. */
     @Override

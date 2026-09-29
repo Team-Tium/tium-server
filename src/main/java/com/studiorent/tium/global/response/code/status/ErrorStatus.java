@@ -57,9 +57,20 @@ public enum ErrorStatus implements BaseCode {
 
     // feedback error - 피드백 없음
     FEEDBACK_CONVERSATION_EMPTY(HttpStatus.BAD_REQUEST, "FEEDBACK4001", "피드백을 생성할 대화가 없습니다."),
+    FEEDBACK_AUDIO_EMPTY(HttpStatus.BAD_REQUEST, "FEEDBACK4002", "피드백을 생성할 녹음 파일이 비어있습니다."),
+    FEEDBACK_AUDIO_UNSUPPORTED(HttpStatus.BAD_REQUEST, "FEEDBACK4003", "지원하지 않는 녹음 파일 형식입니다."),
     FEEDBACK_NOT_FOUND(HttpStatus.NOT_FOUND, "FEEDBACK404", "피드백이 존재하지 않습니다"),
     FEEDBACK_INVALID_RESPONSE(HttpStatus.INTERNAL_SERVER_ERROR, "FEEDBACK5002", "피드백 응답 형식이 올바르지 않습니다."),
     FEEDBACK_CRITERIA_FILE_READ_FAILED(HttpStatus.INTERNAL_SERVER_ERROR,    "FEEDBACK5001","피드백 기준 파일을 읽지 못했습니다." ),
+    FEEDBACK_TRANSCRIPTION_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "FEEDBACK5003", "녹음 파일을 텍스트로 변환하지 못했습니다."),
+
+    // Call STT Error
+    CALL_STT_NOT_FOUND(HttpStatus.NOT_FOUND, "CALL_STT4041", "통화 STT 내역이 존재하지 않습니다."),
+    CALL_STT_NOT_READY(HttpStatus.BAD_REQUEST, "CALL_STT4001", "상대방 통화 STT 내역이 아직 준비되지 않았습니다."),
+    CALL_STT_FILE_PART_REQUIRED(HttpStatus.BAD_REQUEST, "CALL_STT4002", "file 파트는 필수입니다."),
+    CALL_STT_MULTIPART_REQUIRED(HttpStatus.UNSUPPORTED_MEDIA_TYPE, "CALL_STT4151", "multipart/form-data 형식으로 요청해야 합니다."),
+    CALL_STT_FILE_TOO_LARGE(HttpStatus.PAYLOAD_TOO_LARGE, "CALL_STT4131", "업로드 가능한 녹음 파일 크기를 초과했습니다."),
+    CALL_STT_ALREADY_USED(HttpStatus.CONFLICT, "CALL_STT4091", "이미 피드백 생성에 사용된 STT 내역은 수정할 수 없습니다."),
 
     // Dev Error - 개발 전용 API
     DEV_API_FORBIDDEN(HttpStatus.FORBIDDEN, "DEV4031", "개발용 API는 운영 환경에서 사용할 수 없습니다.");

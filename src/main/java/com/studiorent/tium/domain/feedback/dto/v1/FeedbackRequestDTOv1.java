@@ -8,7 +8,7 @@ public record FeedbackRequestDTOv1(
         @Nullable String goal // 목표  말잘하게하기?
 ) {
 
-    public static FeedbackRequestDTOv1 empty() {
-        return new FeedbackRequestDTOv1(null, null);
+    public static FeedbackRequestDTOv1 defaultRequest() {
+        return new FeedbackRequestDTOv1(RelationShip.FRIEND, "자연스럽게 대화 이어가기");
     }
 }

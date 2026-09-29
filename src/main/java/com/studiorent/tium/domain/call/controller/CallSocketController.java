@@ -19,20 +19,17 @@ public class CallSocketController {
 
     private final CallSignalingService callSignalingService;
 
-    // TODO(backlog): Accept/reject signaling is intentionally disabled because the current
-    // call UI does not require a separate accept/reject step.
-    //
-    // /** Handles a participant accepting an incoming call. */
-    // @MessageMapping("/call/{callId}/accept")
-    // public void accept(Principal principal, @DestinationVariable Long callId) {
-    //     callSignalingService.accept(extractMemberId(principal), callId);
-    // }
-    //
-    // /** Handles a participant rejecting an incoming call. */
-    // @MessageMapping("/call/{callId}/reject")
-    // public void reject(Principal principal, @DestinationVariable Long callId) {
-    //     callSignalingService.reject(extractMemberId(principal), callId);
-    // }
+    /** Handles a participant accepting an incoming call. */
+    @MessageMapping("/call/{callId}/accept")
+    public void accept(Principal principal, @DestinationVariable Long callId) {
+        callSignalingService.accept(extractMemberId(principal), callId);
+    }
+
+    /** Handles a participant rejecting an incoming call. */
+    @MessageMapping("/call/{callId}/reject")
+    public void reject(Principal principal, @DestinationVariable Long callId) {
+        callSignalingService.reject(extractMemberId(principal), callId);
+    }
 
     /** Receives and relays a WebRTC SDP offer for a call. */
     @MessageMapping("/call/{callId}/offer")

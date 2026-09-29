@@ -1,6 +1,7 @@
 package com.studiorent.tium.domain.call.socket;
 
 import com.studiorent.tium.domain.call.dto.CallSocketDTO;
+import com.studiorent.tium.domain.call.converter.CallConverter;
 import com.studiorent.tium.domain.call.entity.Call;
 import com.studiorent.tium.domain.call.entity.MemberCall;
 import com.studiorent.tium.domain.call.exception.CallErrorStatus;
@@ -49,7 +50,7 @@ public class CallSocketEventListener {
                         event.callId(),
                         event.type(),
                         event.endedByMemberId(),
-                        event.endAt()
+                        CallConverter.toServiceOffsetDateTime(event.endAt())
                 )
         );
 

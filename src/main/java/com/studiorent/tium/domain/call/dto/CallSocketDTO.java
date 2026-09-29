@@ -3,7 +3,7 @@ package com.studiorent.tium.domain.call.dto;
 import com.studiorent.tium.domain.call.entity.enums.CallType;
 import jakarta.validation.constraints.NotBlank;
 
-import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 
 public class CallSocketDTO {
 
@@ -14,14 +14,20 @@ public class CallSocketDTO {
     ) {
     }
 
-    // TODO(backlog): Accept/reject signaling is intentionally disabled because the current
-    // call UI does not require a separate accept/reject step.
-    // public record CallControlDTO(
-    //         Long callId,
-    //         CallType type,
-    //         Long senderMemberId
-    // ) {
-    // }
+    public record CallAcceptedDTO(
+            Long callId,
+            CallType type,
+            Long senderMemberId,
+            OffsetDateTime acceptedAt
+    ) {
+    }
+
+    public record CallRejectedDTO(
+            Long callId,
+            CallType type,
+            Long senderMemberId
+    ) {
+    }
 
     public record SdpDTO(
             @NotBlank(message = "sdp is required")
@@ -59,7 +65,7 @@ public class CallSocketDTO {
             Long callId,
             CallType type,
             Long endedByMemberId,
-            LocalDateTime endAt
+            OffsetDateTime endAt
     ) {
     }
 }

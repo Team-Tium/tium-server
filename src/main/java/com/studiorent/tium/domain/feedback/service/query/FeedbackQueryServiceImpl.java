@@ -1,6 +1,8 @@
 package com.studiorent.tium.domain.feedback.service.query;
 
 import com.studiorent.tium.domain.chat.service.ChatRoomValidator;
+import com.studiorent.tium.domain.call.service.CallAccessValidator;
+import com.studiorent.tium.domain.feedback.converter.FeedbackConverter;
 import com.studiorent.tium.domain.feedback.dto.v1.FeedbackResponseDTOv1;
 import com.studiorent.tium.domain.feedback.entity.Feedback;
 import com.studiorent.tium.domain.feedback.repository.FeedbackRepository;
@@ -17,6 +19,7 @@ public class FeedbackQueryServiceImpl implements FeedbackQueryService {
 
     private final FeedbackRepository feedbackRepository;
     private final ChatRoomValidator chatRoomValidator;
+    private final CallAccessValidator callAccessValidator;
 
 
     @Override
@@ -30,13 +33,19 @@ public class FeedbackQueryServiceImpl implements FeedbackQueryService {
                 .orElseThrow(() -> new BusinessException(ErrorStatus.FEEDBACK_NOT_FOUND));
 
 
-        return  new FeedbackResponseDTOv1(
-                feedback.getOverallQuality().name(),
-                feedback.getOverallFeedback(),
-                feedback.getStrength(),
-                feedback.getFlowProblem(),
-                feedback.getPracticePoint(),
-                feedback.getConversationPoints()
-        );
+        return FeedbackConverter.toResponse(feedback);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public FeedbackResponseDTOv1 findByMemberIdAndCallId(Long memberId, Long callId) {
+        callAccessValidator.validateParticipant(callId, memberId);
+
+        Feedback feedback =
+                feedbackRepository
+                        .findTopByMemberIdAndCallIdAndCompletedTrueOrderByCreatedAtDesc(memberId, callId)
+                        .orElseThrow(() -> new BusinessException(ErrorStatus.FEEDBACK_NOT_FOUND));
+
+        return FeedbackConverter.toResponse(feedback);
     }
 }

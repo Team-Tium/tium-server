@@ -4,13 +4,9 @@ import com.studiorent.tium.domain.call.dto.CallSocketDTO;
 
 public interface CallSignalingService {
 
-    /*
-    TODO(backlog): Accept/reject signaling is intentionally disabled because the current
-    call UI does not require a separate accept/reject step.
     void accept(Long memberId, Long callId);
 
     void reject(Long memberId, Long callId);
-    */
 
     void relayOffer(Long memberId, Long callId, CallSocketDTO.SdpDTO request);
 

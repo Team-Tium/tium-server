@@ -23,3 +23,8 @@ jwt:
   secret: dGVzdC1vbmx5LXNlY3JldC1rZXktZm9yLWNpLXRlc3QtZW52aXJvbm1lbnQtMTIzNDU2Nzg5MA==
   access-token-expiration: 30m
   refresh-token-expiration: 14d
+
+app:
+  etl:
+    pipeline:
+      init: false

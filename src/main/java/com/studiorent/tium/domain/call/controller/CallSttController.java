@@ -1,7 +1,8 @@
 package com.studiorent.tium.domain.call.controller;
 
 import com.studiorent.tium.domain.call.dto.CallSttResponseDTO;
-import com.studiorent.tium.domain.call.service.CallSttService;
+import com.studiorent.tium.domain.call.service.command.CallSttCommandService;
+import com.studiorent.tium.domain.call.service.query.CallSttQueryService;
 import com.studiorent.tium.global.response.ApiResponse;
 import com.studiorent.tium.global.security.CustomUserDetails;
 import lombok.RequiredArgsConstructor;
@@ -20,7 +21,8 @@ import org.springframework.web.multipart.MultipartFile;
 @RequestMapping("/api/v1/call")
 public class CallSttController {
 
-    private final CallSttService callSttService;
+    private final CallSttCommandService callSttCommandService;
+    private final CallSttQueryService callSttQueryService;
 
     @PostMapping(
             value = "/{callId}/stt",
@@ -34,7 +36,7 @@ public class CallSttController {
             @RequestPart(value = "startedAt", required = false) String startedAt
     ) {
         return ApiResponse.onSuccess(
-                callSttService.saveStt(userDetails.getMemberId(), callId, file, startedAt));
+                callSttCommandService.saveStt(userDetails.getMemberId(), callId, file, startedAt));
     }
 
     @GetMapping(value = "/{callId}/stt", produces = MediaType.APPLICATION_JSON_VALUE)
@@ -43,7 +45,7 @@ public class CallSttController {
             @PathVariable Long callId
     ) {
         return ApiResponse.onSuccess(
-                callSttService.findStt(userDetails.getMemberId(), callId));
+                callSttQueryService.findStt(userDetails.getMemberId(), callId));
     }
 
     @GetMapping(value = "/{callId}/feedback/status", produces = MediaType.APPLICATION_JSON_VALUE)
@@ -52,6 +54,6 @@ public class CallSttController {
             @PathVariable Long callId
     ) {
         return ApiResponse.onSuccess(
-                callSttService.findSttStatus(userDetails.getMemberId(), callId));
+                callSttQueryService.findSttStatus(userDetails.getMemberId(), callId));
     }
 }

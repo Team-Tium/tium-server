@@ -5,7 +5,7 @@ import com.studiorent.tium.domain.chat.entity.enums.MessageType;
 import com.studiorent.tium.domain.chat.repository.ChatMessageRepository;
 import com.studiorent.tium.domain.chat.service.ChatRoomValidator;
 import com.studiorent.tium.domain.call.service.CallAccessValidator;
-import com.studiorent.tium.domain.call.service.CallSttService;
+import com.studiorent.tium.domain.call.service.query.CallSttQueryService;
 import com.studiorent.tium.domain.feedback.converter.FeedbackConverter;
 import com.studiorent.tium.domain.feedback.dto.ConversationTurn;
 import com.studiorent.tium.domain.feedback.dto.v1.FeedbackRequestDTOv1;
@@ -50,7 +50,7 @@ public class FeedbackCommandServiceImpl implements FeedbackCommandService {
     private final ChatClient chatClient;
     private final ChatRoomValidator chatRoomValidator;
     private final CallAccessValidator callAccessValidator;
-    private final CallSttService callSttService;
+    private final CallSttQueryService callSttQueryService;
     private final TransactionTemplate transactionTemplate;
 
     public FeedbackCommandServiceImpl(
@@ -60,14 +60,14 @@ public class FeedbackCommandServiceImpl implements FeedbackCommandService {
             Advisor[] advisors,
             ChatRoomValidator chatRoomValidator,
             CallAccessValidator callAccessValidator,
-            CallSttService callSttService,
+            CallSttQueryService callSttQueryService,
             PlatformTransactionManager transactionManager
     ) {
         this.feedbackRepository = feedbackRepository;
         this.chatMessageRepository = chatMessageRepository;
         this.chatRoomValidator = chatRoomValidator;
         this.callAccessValidator = callAccessValidator;
-        this.callSttService = callSttService;
+        this.callSttQueryService = callSttQueryService;
         this.transactionTemplate = new TransactionTemplate(transactionManager);
         this.chatClient = chatClientBuilder
                 .defaultOptions(ChatOptions.builder().temperature(0.0))
@@ -108,7 +108,7 @@ public class FeedbackCommandServiceImpl implements FeedbackCommandService {
         Feedback myClaim = claimCallFeedback(memberId, callId);
 
         try {
-            List<ConversationTurn> conversation = callSttService.findConversationForFeedback(memberId, callId);
+            List<ConversationTurn> conversation = callSttQueryService.findConversationForFeedback(memberId, callId);
             FeedbackResponseDTOv1 myFeedback = generateFeedback(feedbackRequest, conversation);
 
             completeCallFeedback(myClaim, myFeedback);

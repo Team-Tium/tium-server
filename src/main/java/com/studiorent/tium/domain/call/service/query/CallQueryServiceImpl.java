@@ -6,7 +6,6 @@ import com.studiorent.tium.domain.call.entity.Call;
 import com.studiorent.tium.domain.call.entity.MemberCall;
 import com.studiorent.tium.domain.call.entity.enums.CallStatus;
 import com.studiorent.tium.domain.call.repository.CallRepository;
-import com.studiorent.tium.domain.call.service.CallSttService;
 import com.studiorent.tium.domain.member.entity.Member;
 import com.studiorent.tium.domain.member.repository.MemberRepository;
 import com.studiorent.tium.global.exception.BusinessException;
@@ -28,7 +27,7 @@ public class CallQueryServiceImpl implements CallQueryService {
 
     private final CallRepository callRepository;
     private final MemberRepository memberRepository;
-    private final CallSttService callSttService;
+    private final CallSttQueryService callSttQueryService;
 
     @Override
     @Transactional(readOnly = true)
@@ -72,7 +71,7 @@ public class CallQueryServiceImpl implements CallQueryService {
             throw new BusinessException(ErrorStatus.AUTH_MEMBER_NOT_FOUND);
         }
 
-        CallSttResponseDTO.Status feedbackStatus = callSttService.getFeedbackStatus(memberId, call);
+        CallSttResponseDTO.Status feedbackStatus = callSttQueryService.getFeedbackStatus(memberId, call);
 
         return new CallSttResponseDTO.RecentCall(
                 call.getId(),

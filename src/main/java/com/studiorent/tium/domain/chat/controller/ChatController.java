@@ -96,6 +96,18 @@ public class ChatController {
                 chatQueryService.getChats(userDetails.getMemberId(), cursor, clampSize(size)));
     }
 
+    @Operation(summary = "피드백 화면 최근 채팅 목록",
+            description = "마지막 메시지 ID 내림차순으로 내려오며, 각 채팅방에 내 피드백 결과 존재 여부를 함께 내려준다.")
+    @GetMapping("/feedback/recent")
+    public ApiResponse<ChatResponseDTO.RecentFeedbackChatListDTO> getFeedbackChats(
+            @AuthenticationPrincipal CustomUserDetails userDetails,
+            @RequestParam(required = false) Long cursor,
+            @RequestParam(defaultValue = "20") int size) {
+
+        return ApiResponse.onSuccess(
+                chatQueryService.getFeedbackChats(userDetails.getMemberId(), cursor, clampSize(size)));
+    }
+
     @Operation(summary = "채팅 내역 조회",
             description = "cursor는 과거 방향(최신순), after는 미래 방향(오래된 순)이다. "
                     + "둘 다 오면 after가 우선한다. after는 소켓이 끊긴 동안 온 메시지를 채우는 용도다.")

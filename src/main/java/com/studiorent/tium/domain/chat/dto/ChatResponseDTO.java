@@ -4,6 +4,7 @@ import com.studiorent.tium.domain.chat.entity.enums.MessageType;
 import io.swagger.v3.oas.annotations.media.Schema;
 
 import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 import java.util.List;
 
 public class ChatResponseDTO {
@@ -95,6 +96,22 @@ public class ChatResponseDTO {
             Boolean hasNext,
             Long nextCursor
     ){
+    }
+
+    public record RecentFeedbackChatListDTO(
+            List<RecentFeedbackChatDTO> items,
+            Boolean hasNext,
+            Long nextCursor
+    ) {
+    }
+
+    public record RecentFeedbackChatDTO(
+            Long roomId,
+            OpponentDTO opponent,
+            String preview,
+            OffsetDateTime lastMessageAt,
+            Boolean hasFeedback
+    ) {
     }
 
     public record ChatRoomDTO(

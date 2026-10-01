@@ -8,6 +8,8 @@ import com.studiorent.tium.domain.chat.repository.ChatRoomMemberRepository;
 import com.studiorent.tium.domain.chat.repository.projection.ChatOpponentProjection;
 import com.studiorent.tium.domain.chat.repository.projection.ChatRoomListProjection;
 import com.studiorent.tium.domain.chat.service.ChatRoomValidator;
+import com.studiorent.tium.domain.call.converter.CallConverter;
+import com.studiorent.tium.domain.feedback.repository.FeedbackRepository;
 import com.studiorent.tium.global.exception.BusinessException;
 import com.studiorent.tium.global.response.code.status.ErrorStatus;
 import lombok.RequiredArgsConstructor;
@@ -25,6 +27,7 @@ public class ChatQueryServiceImpl implements ChatQueryService {
     private final ChatRoomMemberRepository chatRoomMemberRepository;
     private final ChatMessageRepository chatMessageRepository;
     private final ChatRoomValidator chatRoomValidator;
+    private final FeedbackRepository feedbackRepository;
 
     /**
      * 방 목록 한 페이지.
@@ -52,6 +55,34 @@ public class ChatQueryServiceImpl implements ChatQueryService {
                 : null;
 
         return new ChatResponseDTO.GetChatDTO(rooms, hasNext, nextCursor);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public ChatResponseDTO.RecentFeedbackChatListDTO getFeedbackChats(Long memberId, Long cursor, int size) {
+        List<ChatRoomListProjection> rows =
+                chatRoomMemberRepository.findRoomList(memberId, cursor, size + 1);
+
+        boolean hasNext = rows.size() > size;
+        List<ChatRoomListProjection> page = hasNext ? rows.subList(0, size) : rows;
+
+        List<ChatResponseDTO.RecentFeedbackChatDTO> items = page.stream()
+                .map(row -> new ChatResponseDTO.RecentFeedbackChatDTO(
+                        row.getRoomId(),
+                        new ChatResponseDTO.OpponentDTO(
+                                row.getOpponentId(),
+                                row.getOpponentNickname(),
+                                row.getOpponentProfileImageUrl()),
+                        row.getLastMessageContent(),
+                        CallConverter.toServiceOffsetDateTime(row.getLastMessageSentAt()),
+                        feedbackRepository.existsByMemberIdAndRoomIdAndCompletedTrue(memberId, row.getRoomId())))
+                .toList();
+
+        Long nextCursor = hasNext
+                ? page.get(page.size() - 1).getLastMessageId()
+                : null;
+
+        return new ChatResponseDTO.RecentFeedbackChatListDTO(items, hasNext, nextCursor);
     }
 
     /**

@@ -4,4 +4,6 @@ import com.studiorent.tium.domain.feedback.dto.v1.FeedbackResponseDTOv1;
 
 public interface FeedbackQueryService {
     FeedbackResponseDTOv1 findByMemberIdAndRoomId(Long memberId, Long roomId);
+
+    FeedbackResponseDTOv1 findByMemberIdAndCallId(Long memberId, Long callId);
 }

@@ -12,6 +12,8 @@ public interface ChatQueryService {
      */
     ChatResponseDTO.GetChatDTO getChats(Long memberId, Long cursor, int size);
 
+    ChatResponseDTO.RecentFeedbackChatListDTO getFeedbackChats(Long memberId, Long cursor, int size);
+
     /**
      * 채팅방 하나의 내역을 조회한다. 상대 정보와 나감 여부도 함께 내려간다.
      *

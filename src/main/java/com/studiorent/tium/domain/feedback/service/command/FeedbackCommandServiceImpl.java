@@ -4,6 +4,8 @@ import com.studiorent.tium.domain.chat.entity.ChatMessage;
 import com.studiorent.tium.domain.chat.entity.enums.MessageType;
 import com.studiorent.tium.domain.chat.repository.ChatMessageRepository;
 import com.studiorent.tium.domain.chat.service.ChatRoomValidator;
+import com.studiorent.tium.domain.call.service.CallAccessValidator;
+import com.studiorent.tium.domain.call.service.query.CallSttQueryService;
 import com.studiorent.tium.domain.feedback.converter.FeedbackConverter;
 import com.studiorent.tium.domain.feedback.dto.ConversationTurn;
 import com.studiorent.tium.domain.feedback.dto.v1.FeedbackRequestDTOv1;
@@ -22,11 +24,15 @@ import org.springframework.ai.chat.messages.UserMessage;
 import org.springframework.ai.chat.prompt.ChatOptions;
 import org.springframework.ai.chat.prompt.Prompt;
 import org.springframework.ai.rag.retrieval.search.VectorStoreDocumentRetriever;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -36,22 +42,33 @@ import java.util.Optional;
 public class FeedbackCommandServiceImpl implements FeedbackCommandService {
 
     private static final int FEEDBACK_MESSAGE_LIMIT = 100;
+    private static final long CALL_FEEDBACK_PROCESSING_TIMEOUT_MINUTES = 15;
+    private static final int FEEDBACK_INVALID_RESPONSE_RETRY_COUNT = 2;
 
     private final FeedbackRepository feedbackRepository;
     private final ChatMessageRepository chatMessageRepository;
     private final ChatClient chatClient;
     private final ChatRoomValidator chatRoomValidator;
+    private final CallAccessValidator callAccessValidator;
+    private final CallSttQueryService callSttQueryService;
+    private final TransactionTemplate transactionTemplate;
 
     public FeedbackCommandServiceImpl(
             FeedbackRepository feedbackRepository,
             ChatMessageRepository chatMessageRepository,
             ChatClient.Builder chatClientBuilder,
             Advisor[] advisors,
-            ChatRoomValidator chatRoomValidator
+            ChatRoomValidator chatRoomValidator,
+            CallAccessValidator callAccessValidator,
+            CallSttQueryService callSttQueryService,
+            PlatformTransactionManager transactionManager
     ) {
         this.feedbackRepository = feedbackRepository;
         this.chatMessageRepository = chatMessageRepository;
         this.chatRoomValidator = chatRoomValidator;
+        this.callAccessValidator = callAccessValidator;
+        this.callSttQueryService = callSttQueryService;
+        this.transactionTemplate = new TransactionTemplate(transactionManager);
         this.chatClient = chatClientBuilder
                 .defaultOptions(ChatOptions.builder().temperature(0.0))
                 .defaultAdvisors(advisors)
@@ -61,8 +78,8 @@ public class FeedbackCommandServiceImpl implements FeedbackCommandService {
 
     @Override
     @Transactional
-    public FeedbackResponseDTOv1 createFeedback(Long memberId, Long roomId, FeedbackRequestDTOv1 request) {
-        FeedbackRequestDTOv1 feedbackRequest = request == null ? FeedbackRequestDTOv1.empty() : request;
+    public FeedbackResponseDTOv1 createFeedback(Long memberId, Long roomId) {
+        FeedbackRequestDTOv1 feedbackRequest = FeedbackRequestDTOv1.defaultRequest();
 
         // 피드백은 로그인한 사용자가 실제로 참여 중인 채팅방에 대해서만 생성할 수 있다.
         chatRoomValidator.getJoinedMember(roomId, memberId);
@@ -70,18 +87,108 @@ public class FeedbackCommandServiceImpl implements FeedbackCommandService {
         // 프론트에서 대화 내용을 받지 않고, roomId로 저장된 채팅 메시지를 직접 가져온다.
         List<ConversationTurn> conversation = getConversationFromChatMessages(memberId, roomId);
 
+        FeedbackResponseDTOv1 result = generateFeedback(feedbackRequest, conversation);
+
+        Feedback feedback = FeedbackConverter.toFeedback(memberId, roomId, result);
+        feedbackRepository.save(feedback);
+
+        return result;
+    }
+
+    @Override
+    public FeedbackResponseDTOv1 createCallFeedback(Long memberId, Long callId) {
+        FeedbackRequestDTOv1 feedbackRequest = FeedbackRequestDTOv1.defaultRequest();
+        callAccessValidator.validateParticipant(callId, memberId);
+
+        Optional<FeedbackResponseDTOv1> existingFeedback = findExistingCallFeedback(memberId, callId);
+        if (existingFeedback.isPresent()) {
+            return existingFeedback.get();
+        }
+
+        Feedback myClaim = claimCallFeedback(memberId, callId);
+
+        try {
+            List<ConversationTurn> conversation = callSttQueryService.findConversationForFeedback(memberId, callId);
+            FeedbackResponseDTOv1 myFeedback = generateFeedback(feedbackRequest, conversation);
+
+            completeCallFeedback(myClaim, myFeedback);
+
+            return myFeedback;
+        } catch (RuntimeException e) {
+            releaseCallFeedbackClaim(memberId, callId);
+            throw e;
+        }
+    }
+
+    private Optional<FeedbackResponseDTOv1> findExistingCallFeedback(Long memberId, Long callId) {
+        return transactionTemplate.execute(status ->
+                feedbackRepository.findTopByMemberIdAndCallIdAndCompletedTrueOrderByCreatedAtDesc(memberId, callId)
+                        .map(FeedbackConverter::toResponse));
+    }
+
+    private Feedback claimCallFeedback(Long memberId, Long callId) {
+        try {
+            return transactionTemplate.execute(status -> {
+                callAccessValidator.validateParticipantForUpdate(callId, memberId);
+                deleteExpiredCallFeedbackClaim(memberId, callId);
+
+                if (feedbackRepository.existsByMemberIdAndCallIdAndCompletedTrue(memberId, callId)
+                        || feedbackRepository.existsByMemberIdAndCallIdAndCompletedFalse(memberId, callId)) {
+                    throw new BusinessException(ErrorStatus.DUPLICATE_REQUEST);
+                }
+
+                Feedback myFeedback = Feedback.callProcessing(memberId, callId);
+                return feedbackRepository.save(myFeedback);
+            });
+        } catch (DataIntegrityViolationException e) {
+            throw new BusinessException(ErrorStatus.DUPLICATE_REQUEST);
+        }
+    }
+
+    private void deleteExpiredCallFeedbackClaim(Long memberId, Long callId) {
+        LocalDateTime expiredBefore = LocalDateTime.now()
+                .minusMinutes(CALL_FEEDBACK_PROCESSING_TIMEOUT_MINUTES);
+        feedbackRepository.deleteByMemberIdAndCallIdAndCompletedFalseAndCreatedAtBefore(memberId, callId, expiredBefore);
+    }
+
+    private void completeCallFeedback(
+            Feedback myClaim,
+            FeedbackResponseDTOv1 myFeedback
+    ) {
+        transactionTemplate.executeWithoutResult(status -> {
+            FeedbackConverter.complete(myClaim, myFeedback);
+            feedbackRepository.save(myClaim);
+        });
+    }
+
+    private void releaseCallFeedbackClaim(Long memberId, Long callId) {
+        transactionTemplate.executeWithoutResult(status ->
+                feedbackRepository.deleteByMemberIdAndCallIdAndCompletedFalse(memberId, callId));
+    }
+
+    private FeedbackResponseDTOv1 generateFeedback(FeedbackRequestDTOv1 feedbackRequest, List<ConversationTurn> conversation) {
+        int maxAttempts = FEEDBACK_INVALID_RESPONSE_RETRY_COUNT + 1;
+        for (int attempt = 1; attempt <= maxAttempts; attempt++) {
+            try {
+                return generateFeedbackOnce(feedbackRequest, conversation);
+            } catch (BusinessException e) {
+                if (e.getBaseCode() != ErrorStatus.FEEDBACK_INVALID_RESPONSE || attempt == maxAttempts) {
+                    throw e;
+                }
+            }
+        }
+
+        throw new BusinessException(ErrorStatus.FEEDBACK_INVALID_RESPONSE);
+    }
+
+    private FeedbackResponseDTOv1 generateFeedbackOnce(FeedbackRequestDTOv1 feedbackRequest, List<ConversationTurn> conversation) {
         Prompt prompt = createConversationFeedbackPrompt(feedbackRequest, conversation);
         FeedbackResponseDTOv1 result = entity(
                 prompt,
                 buildFlowCaseFilter(feedbackRequest.relationship()),
                 FeedbackResponseDTOv1.class);
 
-        if (result == null) {
-            throw new BusinessException(ErrorStatus.FEEDBACK_INVALID_RESPONSE);
-        }
-
-        Feedback feedback = FeedbackConverter.toFeedback(memberId, roomId, result);
-        feedbackRepository.save(feedback);
+        FeedbackConverter.validateResponse(result);
 
         return result;
     }
@@ -116,7 +223,12 @@ public class FeedbackCommandServiceImpl implements FeedbackCommandService {
      * /rag/feedback에서는 ConversationFeedbackResult record로 구조화된 피드백을 받을 때 사용한다.
      */
     public <T> T entity(Prompt prompt, Optional<String> filterExpressionAsOpt, Class<T> responseType) {
+        return entity(chatClient, prompt, filterExpressionAsOpt, responseType);
+    }
+
+    private <T> T entity(ChatClient client, Prompt prompt, Optional<String> filterExpressionAsOpt, Class<T> responseType) {
         return prepareRequest(
+                client,
                 prompt,
                 filterExpressionAsOpt)
                 .call()
@@ -131,6 +243,7 @@ public class FeedbackCommandServiceImpl implements FeedbackCommandService {
     //ChatClient.ChatClientRequestSpec를 이렇게 쓰는이유는 중첩 인터페이스라서 그렇데
     // 이렇게 한이유가 ChatClient 전용 인터페이스여서 그렇데 만약 차 = Chatclient였으면 그내부에 엔진이라는 인터페이스가 있었을것임
     private ChatClient.ChatClientRequestSpec prepareRequest(
+            ChatClient client,
             Prompt prompt,
             Optional<String> filterExpressionAsOpt
     )
@@ -141,10 +254,10 @@ public class FeedbackCommandServiceImpl implements FeedbackCommandService {
                 .filter(filterExpression -> !"string".equalsIgnoreCase(filterExpression));
 
         return validFilterExpression
-                .map(filterExpression -> chatClient.prompt(prompt).
+                .map(filterExpression -> client.prompt(prompt).
                         advisors(advisorSpec ->
                                 advisorSpec.param(VectorStoreDocumentRetriever.FILTER_EXPRESSION, filterExpression)))
-                .orElse(chatClient.prompt(prompt));
+                .orElse(client.prompt(prompt));
         // 여기서 Filter에 역할은 백터검색을 할떄 모든 문서를 대상으로하는게아닌 여기에 들어온값을 대상에 문서로 검색해
         // sql에 where절이랑 비슷하다고 보면됨
 
@@ -258,6 +371,17 @@ public class FeedbackCommandServiceImpl implements FeedbackCommandService {
            - 한 번의 대화만 보고 성향을 단정하지 않는다.
            - 반복 기록이 있을 때만 “반복되는 경향”이라고 표현한다.
            - 피드백은 구체적이고 바로 적용 가능해야 한다.
+
+           [overallQuality 판단 기준]
+           - GOOD: 대화 흐름이 자연스럽고, 상대의 말이나 감정을 적절히 받아주며, 뚜렷한 흐름 문제가 없는 경우
+           - AMBIGUOUS: 대화는 유지되지만 단답, 얕은 반응, 놓친 대화 포인트, 약한 맥락 연결 등 개선 여지가 있는 경우
+           - BAD: 상대가 불편할 가능성이 높은 표현, 감정 무시, 비난/압박, 부적절하게 사적인 질문, 명확한 대화 단절이 있는 경우
+
+           [overallQuality 판정 원칙]
+           - BAD는 명확한 근거가 있을 때만 선택한다.
+           - GOOD은 단순히 문제가 없다는 이유만으로 선택하지 않는다. 자연스러운 이어가기와 적절한 반응이 있어야 한다.
+           - 애매하면 AMBIGUOUS를 선택한다.
+           - 서비스의 목적은 사용자를 혼내는 것이 아니라 다음 대화를 더 잘 이어가도록 돕는 것이다.
 
            [출력 형식]
            반드시 아래 형식을 따른다.

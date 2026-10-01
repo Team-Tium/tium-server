@@ -42,6 +42,7 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.POST, "/auth/login/**").permitAll()
                         .requestMatchers(HttpMethod.POST, "/auth/reissue").permitAll()
                         .requestMatchers(HttpMethod.POST, "/dev/auth/token").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/dev/chats/feedback-seed").permitAll()
                         .requestMatchers(PUBLIC_GET_PATHS).permitAll()
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         .anyRequest().authenticated()

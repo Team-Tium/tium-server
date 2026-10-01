@@ -5,6 +5,7 @@ import com.studiorent.tium.domain.call.entity.enums.CallSignalKind;
 import com.studiorent.tium.domain.call.entity.enums.CallType;
 
 import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 
 public class CallSocketDTO {
 
@@ -24,7 +25,7 @@ public class CallSocketDTO {
 
     public record AcceptedDTO(
             Long callId,
-            LocalDateTime acceptedAt
+            OffsetDateTime acceptedAt
     ) {
     }
 
@@ -55,7 +56,7 @@ public class CallSocketDTO {
             Long callId,
             Long endedBy,
             CallEndedReason reason,
-            LocalDateTime endAt
+            OffsetDateTime endAt
     ) {
     }
 }

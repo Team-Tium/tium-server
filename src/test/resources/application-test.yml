@@ -14,6 +14,9 @@ spring:
   data:
     redis:
       url: redis://localhost:6379
+  ai:
+    openai:
+      api-key: test-openai-api-key
 
 logging:
   level:

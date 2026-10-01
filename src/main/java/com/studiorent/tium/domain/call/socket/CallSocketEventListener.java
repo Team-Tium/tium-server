@@ -1,5 +1,6 @@
 package com.studiorent.tium.domain.call.socket;
 
+import com.studiorent.tium.domain.call.converter.CallConverter;
 import com.studiorent.tium.domain.call.dto.CallSocketDTO;
 import com.studiorent.tium.domain.call.entity.Call;
 import com.studiorent.tium.domain.call.exception.CallErrorStatus;
@@ -52,7 +53,9 @@ public class CallSocketEventListener {
     public void publishCallAccepted(CallAcceptedEvent event) {
         SocketEvent<CallSocketDTO.AcceptedDTO> socketEvent = new SocketEvent<>(
                 CallSocketEventType.CALL_ACCEPTED,
-                new CallSocketDTO.AcceptedDTO(event.callId(), event.acceptedAt())
+                new CallSocketDTO.AcceptedDTO(
+                        event.callId(),
+                        CallConverter.toServiceOffsetDateTime(event.acceptedAt()))
         );
 
         socketEventPublisher.toDestination(
@@ -71,7 +74,7 @@ public class CallSocketEventListener {
                         event.callId(),
                         event.endedByMemberId(),
                         event.reason(),
-                        event.endAt()
+                        CallConverter.toServiceOffsetDateTime(event.endAt())
                 )
         );
 

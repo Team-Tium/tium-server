@@ -24,6 +24,18 @@ public class FeedConverter {
         );
     }
 
+    public static FeedResponseDTO.FeedListItemDTO toFeedListItem(Feed feed, boolean hearted) {
+        return new FeedResponseDTO.FeedListItemDTO(
+                feed.getId(),
+                feed.getMemberId(),
+                feed.getContent(),
+                feed.getFileId(),
+                feed.getHeart(),
+                hearted ? "Y" : "N",
+                feed.getCreatedAt()
+        );
+    }
+
     public static FeedResponseDTO.FeedHeartResultDTO toFeedHeartResult(Feed feed, FeedLikeLog feedLikeLog) {
         return new FeedResponseDTO.FeedHeartResultDTO(
                 feed.getId(),

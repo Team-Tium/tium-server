@@ -2,6 +2,7 @@ package com.studiorent.tium.domain.feed.controller;
 
 import com.studiorent.tium.domain.feed.dto.FeedRequestDTO;
 import com.studiorent.tium.domain.feed.dto.FeedResponseDTO;
+import com.studiorent.tium.domain.feed.dto.FeedSortType;
 import com.studiorent.tium.domain.feed.service.command.FeedCommandService;
 import com.studiorent.tium.domain.feed.service.query.FeedQueryService;
 import com.studiorent.tium.global.response.ApiResponse;
@@ -16,6 +17,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
@@ -34,6 +36,24 @@ public class FeedController {
             @Valid @RequestBody FeedRequestDTO.FeedDTO request) {
 
         return ApiResponse.onSuccess(feedCommandService.createFeed(userDetails.getMemberId(), request));
+    }
+
+    @GetMapping
+    public ApiResponse<FeedResponseDTO.FeedListDTO> getFeeds(
+            @AuthenticationPrincipal CustomUserDetails userDetails,
+            @RequestParam(defaultValue = "LATEST") FeedSortType sort,
+            @RequestParam(required = false) String cursor) {
+
+        return ApiResponse.onSuccess(feedQueryService.getFeeds(userDetails.getMemberId(), sort, cursor));
+    }
+
+    @GetMapping("/me")
+    public ApiResponse<FeedResponseDTO.FeedListDTO> getMyFeeds(
+            @AuthenticationPrincipal CustomUserDetails userDetails,
+            @RequestParam(defaultValue = "LATEST") FeedSortType sort,
+            @RequestParam(required = false) String cursor) {
+
+        return ApiResponse.onSuccess(feedQueryService.getMyFeeds(userDetails.getMemberId(), sort, cursor));
     }
 
     @GetMapping("/{feedId}")

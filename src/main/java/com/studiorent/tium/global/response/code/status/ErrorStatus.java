@@ -11,6 +11,7 @@ import org.springframework.http.HttpStatus;
 public enum ErrorStatus implements BaseCode {
 
     // Common Error
+    INVALID_CURSOR(HttpStatus.BAD_REQUEST, "FEED4001", "유효하지 않은 피드 커서입니다."),
     INTERNAL_SERVER_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "COMMON500", "서버 에러입니다. 관리자에게 문의하세요."),
     BAD_REQUEST(HttpStatus.BAD_REQUEST, "COMMON400", "잘못된 요청입니다."),
     UNAUTHORIZED(HttpStatus.UNAUTHORIZED, "COMMON401", "인증이 필요합니다."),

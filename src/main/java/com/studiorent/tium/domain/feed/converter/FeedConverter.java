@@ -4,6 +4,7 @@ import com.studiorent.tium.domain.feed.dto.FeedRequestDTO;
 import com.studiorent.tium.domain.feed.dto.FeedResponseDTO;
 import com.studiorent.tium.domain.feed.entity.Feed;
 import com.studiorent.tium.domain.feed.entity.FeedLikeLog;
+import com.studiorent.tium.domain.feed.repository.projection.FeedListProjection;
 
 public class FeedConverter {
 
@@ -21,6 +22,22 @@ public class FeedConverter {
                 feed.getId(),
                 feed.getContent(),
                 feed.getHeart()
+        );
+    }
+
+    public static FeedResponseDTO.FeedListItemDTO toFeedListItem(FeedListProjection feed, boolean hearted) {
+        return new FeedResponseDTO.FeedListItemDTO(
+                feed.getFeedId(),
+                new FeedResponseDTO.MemberDTO(
+                        feed.getMemberId(),
+                        feed.getNickname(),
+                        feed.getProfileImageUrl()
+                ),
+                feed.getContent(),
+                feed.getFileId(),
+                feed.getHeart(),
+                hearted ? "Y" : "N",
+                feed.getCreatedAt()
         );
     }
 

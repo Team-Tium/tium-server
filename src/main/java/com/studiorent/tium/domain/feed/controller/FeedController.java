@@ -47,6 +47,15 @@ public class FeedController {
         return ApiResponse.onSuccess(feedQueryService.getFeeds(userDetails.getMemberId(), sort, cursor));
     }
 
+    @GetMapping("/me")
+    public ApiResponse<FeedResponseDTO.FeedListDTO> getMyFeeds(
+            @AuthenticationPrincipal CustomUserDetails userDetails,
+            @RequestParam(defaultValue = "LATEST") FeedSortType sort,
+            @RequestParam(required = false) String cursor) {
+
+        return ApiResponse.onSuccess(feedQueryService.getMyFeeds(userDetails.getMemberId(), sort, cursor));
+    }
+
     @GetMapping("/{feedId}")
     public ApiResponse<FeedResponseDTO.FeedResultDTO> getFeed(@PathVariable Long feedId) {
         return ApiResponse.onSuccess(feedQueryService.getFeed(feedId));

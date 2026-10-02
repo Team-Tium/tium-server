@@ -7,7 +7,9 @@ import com.studiorent.tium.domain.feed.entity.Feed;
 import com.studiorent.tium.domain.feed.exception.FeedErrorStatus;
 import com.studiorent.tium.domain.feed.repository.FeedLikeLogRepository;
 import com.studiorent.tium.domain.feed.repository.FeedRepository;
+import com.studiorent.tium.domain.feed.repository.projection.FeedListProjection;
 import com.studiorent.tium.global.exception.BusinessException;
+import com.studiorent.tium.global.response.code.status.ErrorStatus;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
@@ -15,6 +17,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
+import java.time.format.DateTimeParseException;
 import java.util.Base64;
 import java.util.List;
 import java.util.Set;
@@ -34,6 +37,16 @@ public class FeedQueryServiceImpl implements FeedQueryService {
     @Override
     @Transactional(readOnly = true)
     public FeedResponseDTO.FeedListDTO getFeeds(Long memberId, FeedSortType sort, String cursor) {
+        return getFeedList(memberId, sort, cursor, null);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public FeedResponseDTO.FeedListDTO getMyFeeds(Long memberId, FeedSortType sort, String cursor) {
+        return getFeedList(memberId, sort, cursor, memberId);
+    }
+
+    private FeedResponseDTO.FeedListDTO getFeedList(Long memberId, FeedSortType sort, String cursor, Long ownerMemberId) {
         FeedCursor feedCursor = FeedCursor.decode(sort, cursor);
         boolean firstPage = feedCursor == null;
         if (sort == FeedSortType.HEART && firstPage) {
@@ -42,13 +55,13 @@ public class FeedQueryServiceImpl implements FeedQueryService {
 
         int size = firstPage ? FIRST_PAGE_SIZE : NEXT_PAGE_SIZE;
 
-        List<Feed> rows = findFeeds(sort, feedCursor, size + 1);
+        List<FeedListProjection> rows = findFeeds(sort, feedCursor, ownerMemberId, size + 1);
         boolean hasNext = rows.size() > size;
-        List<Feed> page = hasNext ? rows.subList(0, size) : rows;
+        List<FeedListProjection> page = hasNext ? rows.subList(0, size) : rows;
 
         Set<Long> likedFeedIds = findLikedFeedIds(memberId, page);
         List<FeedResponseDTO.FeedListItemDTO> feeds = page.stream()
-                .map(feed -> FeedConverter.toFeedListItem(feed, likedFeedIds.contains(feed.getId())))
+                .map(feed -> FeedConverter.toFeedListItem(feed, likedFeedIds.contains(feed.getFeedId())))
                 .toList();
 
         String nextCursor = hasNext ? FeedCursor.encode(sort, page.get(page.size() - 1), feedCursor) : null;
@@ -73,13 +86,14 @@ public class FeedQueryServiceImpl implements FeedQueryService {
                 .toList();
     }
 
-    private List<Feed> findFeeds(FeedSortType sort, FeedCursor cursor, int limit) {
+    private List<FeedListProjection> findFeeds(FeedSortType sort, FeedCursor cursor, Long ownerMemberId, int limit) {
         if (sort == FeedSortType.HEART) {
             LocalDateTime windowStart = cursor == null
                     ? LocalDateTime.now().minusHours(HEART_WINDOW_HOURS)
                     : cursor.windowStart();
 
             return feedRepository.findHeartFeeds(
+                    ownerMemberId,
                     windowStart,
                     cursor == null ? null : cursor.heart(),
                     cursor == null ? null : cursor.createdAt(),
@@ -88,18 +102,19 @@ public class FeedQueryServiceImpl implements FeedQueryService {
         }
 
         return feedRepository.findLatestFeeds(
+                ownerMemberId,
                 cursor == null ? null : cursor.createdAt(),
                 cursor == null ? null : cursor.feedId(),
                 PageRequest.of(0, limit));
     }
 
-    private Set<Long> findLikedFeedIds(Long memberId, List<Feed> feeds) {
+    private Set<Long> findLikedFeedIds(Long memberId, List<FeedListProjection> feeds) {
         if (feeds.isEmpty()) {
             return Set.of();
         }
 
         List<Long> feedIds = feeds.stream()
-                .map(Feed::getId)
+                .map(FeedListProjection::getFeedId)
                 .toList();
 
         return feedLikeLogRepository.findActiveLikedFeedIds(memberId, feedIds);
@@ -124,7 +139,7 @@ public class FeedQueryServiceImpl implements FeedQueryService {
                 FeedSortType cursorSort = FeedSortType.valueOf(parts[0]);
 
                 if (cursorSort != sort) {
-                    throw new IllegalArgumentException("cursor sort does not match request sort");
+                    throw invalidCursor();
                 }
 
                 if (cursorSort == FeedSortType.LATEST && parts.length == 3) {
@@ -145,12 +160,14 @@ public class FeedQueryServiceImpl implements FeedQueryService {
                             Long.parseLong(parts[4]));
                 }
 
-                throw new IllegalArgumentException("invalid feed cursor");
-            } catch (IllegalArgumentException ex) {
-                throw ex;
-            } catch (Exception ex) {
-                throw new IllegalArgumentException("invalid feed cursor", ex);
+                throw invalidCursor();
+            } catch (IllegalArgumentException | DateTimeParseException ex) {
+                throw invalidCursor();
             }
+        }
+
+        private static BusinessException invalidCursor() {
+            return new BusinessException(ErrorStatus.INVALID_CURSOR);
         }
 
         private static FeedCursor firstHeartCursor() {
@@ -162,7 +179,7 @@ public class FeedQueryServiceImpl implements FeedQueryService {
                     null);
         }
 
-        private static String encode(FeedSortType sort, Feed feed, FeedCursor previousCursor) {
+        private static String encode(FeedSortType sort, FeedListProjection feed, FeedCursor previousCursor) {
             String payload;
             if (sort == FeedSortType.HEART) {
                 payload = String.join("|",
@@ -170,12 +187,12 @@ public class FeedQueryServiceImpl implements FeedQueryService {
                         previousCursor.windowStart().toString(),
                         feed.getHeart().toString(),
                         feed.getCreatedAt().toString(),
-                        feed.getId().toString());
+                        feed.getFeedId().toString());
             } else {
                 payload = String.join("|",
                         sort.name(),
                         feed.getCreatedAt().toString(),
-                        feed.getId().toString());
+                        feed.getFeedId().toString());
             }
 
             return Base64.getUrlEncoder()

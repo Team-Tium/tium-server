@@ -111,6 +111,8 @@ class ChatSocketEventListenerTest {
         assertThat(mine.unreadCount()).isZero();
         assertThat(opponents.unreadCount()).isEqualTo(3L);
         assertThat(opponents.lastMessage().messageId()).isEqualTo(last);
+        assertThat(mine.lastMessage().type()).isEqualTo(MessageType.TEXT);
+        assertThat(opponents.lastMessage().type()).isEqualTo(MessageType.TEXT);
     }
 
     @Test

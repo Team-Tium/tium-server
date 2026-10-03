@@ -28,6 +28,7 @@ public class ChatSocketDTO {
     public record LastMessageDTO(
             Long messageId,
             String content,
+            MessageType type,
             LocalDateTime sentAt
     ) {
     }

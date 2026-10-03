@@ -44,6 +44,7 @@ public class ChatSocketEventListener {
         ChatSocketDTO.LastMessageDTO last = new ChatSocketDTO.LastMessageDTO(
                 event.messageId(),
                 event.content(),
+                event.type(),
                 event.sentAt()
         );
 

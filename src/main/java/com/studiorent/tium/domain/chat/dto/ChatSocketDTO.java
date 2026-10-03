@@ -20,16 +20,8 @@ public class ChatSocketDTO {
     /** 채팅 목록의 한 줄을 갱신할 때 쓴다. unreadCount는 받는 사람마다 다르다. */
     public record RoomUpdatedDTO(
             Long roomId,
-            LastMessageDTO lastMessage,
+            ChatResponseDTO.LastMessageDTO lastMessage,
             Long unreadCount
-    ) {
-    }
-
-    public record LastMessageDTO(
-            Long messageId,
-            String content,
-            MessageType type,
-            LocalDateTime sentAt
     ) {
     }
 

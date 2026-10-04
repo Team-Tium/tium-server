@@ -1,5 +1,6 @@
 package com.studiorent.tium.domain.chat.socket;
 
+import com.studiorent.tium.domain.chat.dto.ChatResponseDTO;
 import com.studiorent.tium.domain.chat.dto.ChatSocketDTO;
 import com.studiorent.tium.domain.chat.repository.ChatMessageRepository;
 import com.studiorent.tium.domain.chat.socket.event.ChatMemberLeftEvent;
@@ -41,9 +42,10 @@ public class ChatSocketEventListener {
         socketEventPublisher.toDestination(roomDestination(event.roomId()), socketEvent);
 
 
-        ChatSocketDTO.LastMessageDTO last = new ChatSocketDTO.LastMessageDTO(
+        ChatResponseDTO.LastMessageDTO last = new ChatResponseDTO.LastMessageDTO(
                 event.messageId(),
                 event.content(),
+                event.type(),
                 event.sentAt()
         );
 
@@ -88,7 +90,7 @@ public class ChatSocketEventListener {
     }
 
     private SocketEvent<ChatSocketDTO.RoomUpdatedDTO> roomUpdated(Long roomId,
-                                                                   ChatSocketDTO.LastMessageDTO last,
+                                                                   ChatResponseDTO.LastMessageDTO last,
                                                                    Long unreadCount) {
         return new SocketEvent<>(ROOM_UPDATED, new ChatSocketDTO.RoomUpdatedDTO(roomId, last, unreadCount));
     }

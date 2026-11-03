@@ -56,6 +56,11 @@ public enum ErrorStatus implements BaseCode {
     CHAT_MESSAGE_NOT_FOUND(HttpStatus.NOT_FOUND, "CHAT4042", "존재하지 않는 메시지입니다."),
     CHAT_SUGGESTION_INVALID_RESPONSE(HttpStatus.INTERNAL_SERVER_ERROR, "CHAT5001", "답장 추천 응답 형식이 올바르지 않습니다."),
 
+    // Matching Error
+    MATCHING_UNSUPPORTED_TYPE(HttpStatus.BAD_REQUEST, "MATCHING4001", "지원하지 않는 매칭 타입입니다."),
+    MATCHING_NOT_WAITING(HttpStatus.NOT_FOUND, "MATCHING4041", "매칭 대기 중이 아닙니다."),
+    MATCHING_ALREADY_WAITING(HttpStatus.CONFLICT, "MATCHING4091", "이미 매칭을 기다리는 중입니다."),
+
     // feedback error - 피드백 없음
     FEEDBACK_CONVERSATION_EMPTY(HttpStatus.BAD_REQUEST, "FEEDBACK4001", "피드백을 생성할 대화가 없습니다."),
     FEEDBACK_AUDIO_EMPTY(HttpStatus.BAD_REQUEST, "FEEDBACK4002", "피드백을 생성할 녹음 파일이 비어있습니다."),

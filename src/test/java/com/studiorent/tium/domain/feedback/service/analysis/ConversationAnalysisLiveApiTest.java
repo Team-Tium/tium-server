@@ -14,6 +14,8 @@ import org.springframework.ai.openai.OpenAiChatModel;
 import org.springframework.ai.openai.OpenAiChatOptions;
 import org.springframework.beans.factory.config.YamlPropertiesFactoryBean;
 import org.springframework.core.io.ClassPathResource;
+import org.springframework.core.env.PropertiesPropertySource;
+import org.springframework.core.env.StandardEnvironment;
 import tools.jackson.databind.ObjectMapper;
 
 import java.io.Reader;
@@ -42,7 +44,10 @@ class ConversationAnalysisLiveApiTest {
 
         var yaml = new YamlPropertiesFactoryBean();
         yaml.setResources(new ClassPathResource("application.yaml"));
-        String modelName = yaml.getObject().getProperty("spring.ai.openai.chat.model");
+        var environment = new StandardEnvironment();
+        environment.getPropertySources().addLast(new PropertiesPropertySource("dotenv", loadDotEnv()));
+        String modelName = environment.resolveRequiredPlaceholders(
+                yaml.getObject().getProperty("spring.ai.openai.chat.model"));
         assertThat(modelName).as("application.yaml의 채팅 모델 설정").isNotBlank();
 
         // 재시도를 끄고 타임아웃을 제한하여 테스트 호출량을 제한한다.
@@ -102,19 +107,23 @@ class ConversationAnalysisLiveApiTest {
             return environmentKey;
         }
 
-        Path envFile = Path.of(".env");
-        if (!Files.exists(envFile)) {
-            return "";
-        }
-        var properties = new Properties();
-        try (Reader reader = Files.newBufferedReader(envFile, StandardCharsets.UTF_8)) {
-            properties.load(reader);
-        }
+        var properties = loadDotEnv();
         String key = properties.getProperty("OPENAI_API_KEY", "").strip();
         if (key.length() >= 2 && ((key.startsWith("\"") && key.endsWith("\""))
                 || (key.startsWith("'") && key.endsWith("'")))) {
             return key.substring(1, key.length() - 1);
         }
         return key;
+    }
+
+    private Properties loadDotEnv() throws Exception {
+        var properties = new Properties();
+        Path envFile = Path.of(".env");
+        if (Files.exists(envFile)) {
+            try (Reader reader = Files.newBufferedReader(envFile, StandardCharsets.UTF_8)) {
+                properties.load(reader);
+            }
+        }
+        return properties;
     }
 }

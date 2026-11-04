@@ -36,11 +36,12 @@ public class ConversationAnalysisService {
     ) {
         // 독립적인 빌더를 사용하여 피드백용 RAG Advisor나 대화 메모리를 붙이지 않는다.
         this.chatClient = ChatClient.builder(chatModel)
-                .defaultOptions(ChatOptions.builder().temperature(0.0))
+                .defaultOptions(ChatOptions.builder().temperature(0.0)) // 답변 생성의 무작위성을 낮추는 설정
                 .build();
         this.promptBuilder = promptBuilder;
         this.validator = validator;
     }
+
 
     public ConversationAnalysisResult analyze(ConversationAnalysisInput input) {
         // 잘못된 입력은 외부 API를 호출하기 전에 거절한다.
@@ -89,8 +90,13 @@ public class ConversationAnalysisService {
         return false;
     }
 
+
+
     private BusinessException failure(ErrorStatus errorStatus) {
         log.warn("Conversation analysis failed: code={}", errorStatus.getCode());
         return new BusinessException(errorStatus);
     }
+
+
+
 }

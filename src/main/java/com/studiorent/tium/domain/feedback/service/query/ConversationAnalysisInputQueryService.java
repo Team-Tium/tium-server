@@ -38,7 +38,10 @@ public class ConversationAnalysisInputQueryService {
     public ConversationAnalysisInput findCallInput(Long memberId, Long callId, RelationShip relationship) {
         // 통화 참여 여부와 양쪽 녹음의 STT 준비 여부는 기존 통화 조회 서비스에서 확인한다.
         var segments = callSttQueryService.findSegmentsForFeedback(memberId, callId);
-        return converter.fromCallSegments(memberId, relationship, segments);
+        var input = converter.fromCallSegments(memberId, relationship, segments);
+        return new ConversationAnalysisInput(input.relationship(), input.targetSpeaker(), input.messages(),
+                new ConversationAnalysisInput.Scope(CallSttQueryService.FEEDBACK_UTTERANCE_LIMIT,
+                        "통화의 양쪽 화자 합계 최근 최대 200개 발화만 분석한다. 200개 이하면 전체를 사용한다."));
     }
 
 

@@ -97,7 +97,11 @@ public class FeedbackCommandServiceImpl implements FeedbackCommandService {
 
     @Override
     public FeedbackResponseDTOv1 createCallFeedback(Long memberId, Long callId) {
-        FeedbackRequestDTOv1 feedbackRequest = FeedbackRequestDTOv1.defaultRequest();
+        FeedbackRequestDTOv1 defaults = FeedbackRequestDTOv1.defaultRequest();
+        FeedbackRequestDTOv1 feedbackRequest = new FeedbackRequestDTOv1(defaults.relationship(),
+                "통화의 최근 최대 %d개 발화 안에서 자연스럽게 대화 이어가기를 평가한다. "
+                        .formatted(CallSttQueryService.FEEDBACK_UTTERANCE_LIMIT)
+                        + "overallFeedback에 이 평가 범위를 명시하고, 전체 통화를 평가했다고 표현하지 않는다.");
         callAccessValidator.validateParticipant(callId, memberId);
 
         Optional<FeedbackResponseDTOv1> existingFeedback = findExistingCallFeedback(memberId, callId);

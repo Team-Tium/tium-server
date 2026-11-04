@@ -123,4 +123,16 @@ class FeedbackEvaluationPromptBuilderTest {
         assertInvalidCriteria(List.of(new FeedbackEvaluationCriterion("test", RelationShip.STRANGER,
                 "category", "title", "principle", "  ", "source")));
     }
+
+    @Test
+    void 제한된_평가_범위를_원본과_함께_전달한다() {
+        var original = input();
+        var scope = new ConversationAnalysisInput.Scope(200, "통화 최근 최대 200개 발화");
+        var scoped = new ConversationAnalysisInput(original.relationship(), original.targetSpeaker(), original.messages(), scope);
+
+        var prompt = builder.build(scoped, analysis("힘들어요."), "연습", List.of(criterion(RelationShip.STRANGER)));
+        var payload = objectMapper.readTree(prompt.getInstructions().getLast().getText());
+
+        assertThat(payload.get("conversation").get("scope")).isEqualTo(objectMapper.valueToTree(scope));
+    }
 }

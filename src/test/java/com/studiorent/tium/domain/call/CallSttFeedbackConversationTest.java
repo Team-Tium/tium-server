@@ -13,6 +13,7 @@ import com.studiorent.tium.global.response.code.status.ErrorStatus;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
+import java.util.stream.IntStream;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -65,7 +66,7 @@ class CallSttFeedbackConversationTest {
         var segments = List.of(segment(1, 1, "안녕"), segment(2, 2, "반가워"));
         when(repository.findByCallIdOrderByStartedAtMsAscIdAsc(10L)).thenReturn(segments);
 
-        assertThat(service.findSegmentsForFeedback(1L, 10L)).isSameAs(segments);
+        assertThat(service.findSegmentsForFeedback(1L, 10L)).containsExactlyElementsOf(segments);
 
         var order = inOrder(accessValidator, repository);
         order.verify(accessValidator).validateParticipant(10L, 1L);
@@ -80,5 +81,41 @@ class CallSttFeedbackConversationTest {
         assertThat(service.findConversationForFeedback(1L, 10L)).containsExactly(
                 new ConversationTurn("ME", "안녕"), new ConversationTurn("OTHER", "반가워"));
         verify(accessValidator).validateParticipant(10L, 1L);
+    }
+
+    @Test
+    void 양쪽_화자_합계_최근_200개만_시간순으로_반환한다() {
+        // 최근 200개가 한 화자의 발화여도 전체 녹음에 양쪽 STT가 있으면 준비 조건은 만족한다.
+        var segments = IntStream.rangeClosed(1, 250)
+                .mapToObj(id -> segment(id, id <= 50 ? 2 : 1, "발화 " + id)).toList();
+        when(repository.findByCallIdOrderByStartedAtMsAscIdAsc(10L)).thenReturn(segments);
+
+        var selected = service.findSegmentsForFeedback(1L, 10L);
+
+        assertThat(selected).hasSize(200).containsExactlyElementsOf(segments.subList(50, 250));
+        assertThat(selected.getFirst().getId()).isEqualTo(51L);
+        assertThat(selected.getLast().getId()).isEqualTo(250L);
+    }
+
+    @Test
+    void 정확히_200개이면_전체를_유지한다() {
+        var segments = IntStream.rangeClosed(1, 200)
+                .mapToObj(id -> segment(id, id % 2 + 1, "발화 " + id)).toList();
+        when(repository.findByCallIdOrderByStartedAtMsAscIdAsc(10L)).thenReturn(segments);
+
+        assertThat(service.findSegmentsForFeedback(1L, 10L)).containsExactlyElementsOf(segments);
+    }
+
+    @Test
+    void 기존_피드백용_대화_조회에도_200개_제한이_적용된다() {
+        var segments = IntStream.rangeClosed(1, 201)
+                .mapToObj(id -> segment(id, id % 2 + 1, "발화 " + id)).toList();
+        when(repository.findByCallIdOrderByStartedAtMsAscIdAsc(10L)).thenReturn(segments);
+
+        var conversation = service.findConversationForFeedback(1L, 10L);
+
+        assertThat(conversation).hasSize(200);
+        assertThat(conversation.getFirst().message()).isEqualTo("발화 2");
+        assertThat(conversation.getLast().message()).isEqualTo("발화 201");
     }
 }

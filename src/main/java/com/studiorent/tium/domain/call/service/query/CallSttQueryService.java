@@ -9,6 +9,8 @@ import java.util.List;
 
 public interface CallSttQueryService {
 
+    int FEEDBACK_UTTERANCE_LIMIT = 200;
+
     CallSttResponseDTO.SegmentList findStt(Long memberId, Long callId);
 
     CallSttResponseDTO.Status findSttStatus(Long memberId, Long callId);

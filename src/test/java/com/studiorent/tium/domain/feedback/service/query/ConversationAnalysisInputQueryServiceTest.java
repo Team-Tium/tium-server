@@ -63,7 +63,11 @@ class ConversationAnalysisInputQueryServiceTest {
         when(callSttQueryService.findSegmentsForFeedback(1L, 10L)).thenReturn(segments);
         when(converter.fromCallSegments(1L, RelationShip.FRIEND, segments)).thenReturn(expected);
 
-        assertThat(service.findCallInput(1L, 10L, RelationShip.FRIEND)).isSameAs(expected);
+        var input = service.findCallInput(1L, 10L, RelationShip.FRIEND);
+        assertThat(input.messages()).isEqualTo(expected.messages());
+        assertThat(input.relationship()).isEqualTo(RelationShip.FRIEND);
+        assertThat(input.targetSpeaker()).isEqualTo(Speaker.ME);
+        assertThat(input.scope().maxUtterances()).isEqualTo(200);
 
         var order = inOrder(callSttQueryService, converter);
         order.verify(callSttQueryService).findSegmentsForFeedback(1L, 10L);

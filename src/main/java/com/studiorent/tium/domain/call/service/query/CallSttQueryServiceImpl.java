@@ -107,7 +107,9 @@ public class CallSttQueryServiceImpl implements CallSttQueryService {
             throw new BusinessException(ErrorStatus.CALL_STT_NOT_READY);
         }
 
-        return segments;
+        // 양쪽 STT 준비 여부는 전체에서 확인하고, 평가에는 시간순 목록의 마지막 200개만 사용한다.
+        int fromIndex = Math.max(0, segments.size() - FEEDBACK_UTTERANCE_LIMIT);
+        return List.copyOf(segments.subList(fromIndex, segments.size()));
     }
 
     private List<CallSttSegment> findSegments(Long callId) {

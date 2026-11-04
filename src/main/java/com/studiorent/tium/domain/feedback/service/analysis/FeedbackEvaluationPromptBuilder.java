@@ -29,6 +29,8 @@ public class FeedbackEvaluationPromptBuilder {
             [평가 대상과 근거]
             - conversation.targetSpeaker의 발화만 평가한다. 상대의 발화는 맥락으로 참고한다.
             - 관계는 conversation.relationship을 사용하며 임의로 추정하거나 바꾸지 않는다.
+            - conversation.scope가 있으면 그 구간만 평가한다. 전체 통화에 대한 등급처럼 설명하지 않는다.
+              통화 피드백의 overallFeedback에는 '통화 최근 최대 200개 발화에 대한 피드백'임을 명시한다.
             - 원본 대화를 최우선 근거로 사용한다. analysis는 검증을 거친 참고 분석이지만
               목적이나 의도 해석이 틀릴 수 있다. 원본과 충돌하면 원본을 우선한다.
             - analysis의 목적 후보는 평가 등급이 아니다. 조언이나 질문이라는 이유만으로 감점하지 않는다.

@@ -33,6 +33,9 @@ public class ConversationAnalysisValidator {
         if (input == null || !validator.validate(input).isEmpty()) {
             throw new BusinessException(ErrorStatus.FEEDBACK_ANALYSIS_INVALID_INPUT);
         }
+        if (input.scope() != null && input.messages().size() > input.scope().maxUtterances()) {
+            throw new BusinessException(ErrorStatus.FEEDBACK_ANALYSIS_INVALID_INPUT);
+        }
 
         Set<String> messageIds = new HashSet<>();
         boolean targetPresent = false;
@@ -63,6 +66,8 @@ public class ConversationAnalysisValidator {
             validateUtterance(input.messages().get(index), result.utterances().get(index));
         }
     }
+
+
 
     private void validateContextEvidence(ConversationAnalysisInput input, ConversationAnalysisResult result) {
         Set<String> messageIds = new HashSet<>();

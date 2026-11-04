@@ -85,6 +85,16 @@ public class CallSttQueryServiceImpl implements CallSttQueryService {
     @Override
     @Transactional(readOnly = true)
     public List<ConversationTurn> findConversationForFeedback(Long memberId, Long callId) {
+        return findSegmentsForFeedback(memberId, callId).stream()
+                .map(segment -> new ConversationTurn(
+                        toSpeaker(memberId, segment.getSpeakerUserId()),
+                        segment.getText()))
+                .toList();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<CallSttSegment> findSegmentsForFeedback(Long memberId, Long callId) {
         callAccessValidator.validateParticipant(callId, memberId);
 
         List<CallSttSegment> segments = findSegments(callId);
@@ -97,11 +107,7 @@ public class CallSttQueryServiceImpl implements CallSttQueryService {
             throw new BusinessException(ErrorStatus.CALL_STT_NOT_READY);
         }
 
-        return segments.stream()
-                .map(segment -> new ConversationTurn(
-                        toSpeaker(memberId, segment.getSpeakerUserId()),
-                        segment.getText()))
-                .toList();
+        return segments;
     }
 
     private List<CallSttSegment> findSegments(Long callId) {

@@ -6,6 +6,7 @@ import com.studiorent.tium.domain.feedback.dto.analysis.ConversationAnalysisInpu
 import com.studiorent.tium.domain.feedback.dto.analysis.ConversationAnalysisInput.Utterance;
 import com.studiorent.tium.domain.feedback.dto.analysis.ConversationAnalysisResult;
 import com.studiorent.tium.domain.feedback.entity.enums.RelationShip;
+import com.studiorent.tium.global.exception.BusinessException;
 import jakarta.validation.Validation;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -72,6 +73,9 @@ class ConversationAnalysisLiveApiTest {
             ConversationAnalysisResult result;
             try {
                 result = service.analyze(input);
+            } catch (BusinessException exception) {
+                fail("실제 API 분석 실패: model=" + modelName + ", code=" + exception.getBaseCode().getCode());
+                return;
             } catch (OpenAIServiceException exception) {
                 String code = exception.code().filter(value -> value.matches("[a-z_]{1,80}")).orElse("unknown");
                 fail("실제 API 분석 실패: model=" + modelName + ", status=" + exception.statusCode() + ", code=" + code);

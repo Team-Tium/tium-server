@@ -1,5 +1,7 @@
 package com.studiorent.tium.domain.feedback.service.analysis;
 
+import com.openai.errors.OpenAIIoException;
+import com.openai.errors.OpenAIServiceException;
 import com.studiorent.tium.domain.feedback.dto.analysis.ConversationAnalysisInput;
 import com.studiorent.tium.domain.feedback.dto.analysis.ConversationAnalysisInput.Speaker;
 import com.studiorent.tium.domain.feedback.dto.analysis.ConversationAnalysisInput.Utterance;
@@ -11,6 +13,10 @@ import jakarta.validation.ValidatorFactory;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
 import org.springframework.ai.chat.messages.AssistantMessage;
 import org.springframework.ai.chat.messages.SystemMessage;
@@ -23,6 +29,10 @@ import org.springframework.ai.chat.prompt.ChatOptions;
 import tools.jackson.databind.ObjectMapper;
 
 import java.util.List;
+import java.util.Optional;
+import java.util.stream.Stream;
+import java.io.IOException;
+import java.net.SocketTimeoutException;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -122,5 +132,79 @@ class ConversationAnalysisServiceTest {
                 .isInstanceOfSatisfying(BusinessException.class,
                         exception -> assertThat(exception.getBaseCode())
                                 .isEqualTo(ErrorStatus.FEEDBACK_ANALYSIS_PURPOSE_QUOTE_NOT_FOUND));
+    }
+
+    private void assertMappedError(ErrorStatus expected) {
+        assertThatThrownBy(() -> service.analyze(input()))
+                .isInstanceOfSatisfying(BusinessException.class,
+                        exception -> assertThat(exception.getBaseCode()).isEqualTo(expected));
+    }
+
+    static Stream<Arguments> apiErrors() {
+        return Stream.of(
+                Arguments.of(401, "invalid_api_key", ErrorStatus.FEEDBACK_ANALYSIS_API_AUTH_FAILED),
+                Arguments.of(403, null, ErrorStatus.FEEDBACK_ANALYSIS_API_PERMISSION_DENIED),
+                Arguments.of(404, "model_not_found", ErrorStatus.FEEDBACK_ANALYSIS_MODEL_UNAVAILABLE),
+                Arguments.of(404, null, ErrorStatus.FEEDBACK_ANALYSIS_API_FAILED),
+                Arguments.of(429, "rate_limit_exceeded", ErrorStatus.FEEDBACK_ANALYSIS_API_RATE_LIMITED),
+                Arguments.of(429, "insufficient_quota", ErrorStatus.FEEDBACK_ANALYSIS_API_QUOTA_EXCEEDED),
+                Arguments.of(408, null, ErrorStatus.FEEDBACK_ANALYSIS_API_TIMEOUT),
+                Arguments.of(504, null, ErrorStatus.FEEDBACK_ANALYSIS_API_TIMEOUT),
+                Arguments.of(500, null, ErrorStatus.FEEDBACK_ANALYSIS_API_FAILED),
+                Arguments.of(503, null, ErrorStatus.FEEDBACK_ANALYSIS_API_FAILED),
+                Arguments.of(400, null, ErrorStatus.FEEDBACK_ANALYSIS_API_FAILED)
+        );
+    }
+
+    @ParameterizedTest
+    @MethodSource("apiErrors")
+    void API_상태와_원인에_맞는_개별_오류를_반환한다(int status, String code, ErrorStatus expected) {
+        var exception = mock(OpenAIServiceException.class);
+        when(exception.statusCode()).thenReturn(status);
+        when(exception.code()).thenReturn(Optional.ofNullable(code));
+        when(chatModel.call(any(Prompt.class))).thenThrow(exception);
+
+        assertMappedError(expected);
+    }
+
+    @Test
+    void 네트워크_타임아웃을_별도_오류로_변환한다() {
+        when(chatModel.call(any(Prompt.class))).thenThrow(
+                new OpenAIIoException("test timeout", new SocketTimeoutException()));
+
+        assertMappedError(ErrorStatus.FEEDBACK_ANALYSIS_API_TIMEOUT);
+    }
+
+    @Test
+    void 일반_연결_실패를_타임아웃과_구분한다() {
+        when(chatModel.call(any(Prompt.class))).thenThrow(
+                new OpenAIIoException("test connection failure", new IOException()));
+
+        assertMappedError(ErrorStatus.FEEDBACK_ANALYSIS_API_CONNECTION_FAILED);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"JSON이 아닌 응답", "{\"utterances\":[{\"purposeCandidates\":[{\"purpose\":\"UNDEFINED_PURPOSE\"}]}]}"})
+    void 잘못된_JSON과_enum은_응답_변환_오류로_처리한다(String response) {
+        when(chatModel.call(any(Prompt.class))).thenReturn(
+                new ChatResponse(List.of(new Generation(new AssistantMessage(response)))));
+
+        assertMappedError(ErrorStatus.FEEDBACK_ANALYSIS_RESPONSE_CONVERSION_FAILED);
+    }
+
+    @Test
+    void JSON_null은_기존_구조_검증_오류로_처리한다() {
+        when(chatModel.call(any(Prompt.class))).thenReturn(
+                new ChatResponse(List.of(new Generation(new AssistantMessage("null")))));
+
+        assertMappedError(ErrorStatus.FEEDBACK_ANALYSIS_INVALID_RESPONSE);
+    }
+
+    @Test
+    void 예상하지_못한_프로그램_오류를_API_오류로_감추지_않는다() {
+        var bug = new IllegalStateException("test programming failure");
+        when(chatModel.call(any(Prompt.class))).thenThrow(bug);
+
+        assertThatThrownBy(() -> service.analyze(input())).isSameAs(bug);
     }
 }

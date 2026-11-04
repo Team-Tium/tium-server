@@ -49,8 +49,23 @@ dependencies {
 }
 
 tasks.named('test') {
-    useJUnitPlatform()
+    useJUnitPlatform {
+        excludeTags 'live-api'
+    }
     systemProperty 'spring.profiles.active', 'test'
+}
+
+// 명시적으로 실행할 때만 실제 OpenAI API를 호출한다. 일반 test/CI에서는 제외한다.
+tasks.register('liveApiTest', Test) {
+    description = 'Runs opt-in tests against the real OpenAI API using a local key.'
+    group = 'verification'
+    testClassesDirs = sourceSets.test.output.classesDirs
+    classpath = sourceSets.test.runtimeClasspath
+    useJUnitPlatform {
+        includeTags 'live-api'
+    }
+    // 이전 성공 결과를 재사용하지 않고 명시적인 실행마다 연결을 확인한다.
+    outputs.upToDateWhen { false }
 }
 
 

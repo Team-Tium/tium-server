@@ -40,4 +40,7 @@ public class ConversationAnalysisInputQueryService {
         var segments = callSttQueryService.findSegmentsForFeedback(memberId, callId);
         return converter.fromCallSegments(memberId, relationship, segments);
     }
+
+
+
 }

@@ -64,6 +64,7 @@ public enum ErrorStatus implements BaseCode {
     FEEDBACK_INVALID_RESPONSE(HttpStatus.INTERNAL_SERVER_ERROR, "FEEDBACK5002", "피드백 응답 형식이 올바르지 않습니다."),
     FEEDBACK_CRITERIA_FILE_READ_FAILED(HttpStatus.INTERNAL_SERVER_ERROR,    "FEEDBACK5001","피드백 기준 파일을 읽지 못했습니다." ),
     FEEDBACK_TRANSCRIPTION_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "FEEDBACK5003", "녹음 파일을 텍스트로 변환하지 못했습니다."),
+    FEEDBACK_ANALYSIS_INVALID_RESPONSE(HttpStatus.INTERNAL_SERVER_ERROR, "FEEDBACK5004", "대화 분석 응답이 원본 대화 또는 분석 형식과 일치하지 않습니다."),
 
     // Call STT Error
     CALL_STT_NOT_FOUND(HttpStatus.NOT_FOUND, "CALL_STT4041", "통화 STT 내역이 존재하지 않습니다."),

@@ -13,7 +13,7 @@ import java.util.List;
  */
 public record ConversationAnalysisResult( // 대화문석 결과
         @NotBlank String contextSummary,
-        @NotEmpty List<@NotBlank String> contextEvidenceMessageIds,
+        @NotEmpty List<@NotBlank String> contextEvidenceMessageIds, //대화 근거 원본아이디들
         @NotEmpty List<@NotNull @Valid UtteranceAnalysis> utterances, // 발화별 분석
         @NotNull List<@NotBlank String> uncertainties
 ) {

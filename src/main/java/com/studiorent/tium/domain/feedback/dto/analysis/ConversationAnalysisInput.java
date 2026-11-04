@@ -13,7 +13,7 @@ import java.util.List;
  * relationship과 speaker는 LLM이 추정하지 않고 서버가 지정한다.
  */
 public record ConversationAnalysisInput(
-        @NotNull RelationShip relationship, // 서버가 지정한 관계 ,  처음만난사이로 일단 고정
+        @NotNull RelationShip relationship, // 서버가 지정한 관계
         @NotNull Speaker targetSpeaker, // 이후 피드백을 받을 사람
         @NotEmpty List<@NotNull @Valid Utterance> messages // 매세지 시간순 대화
 ) {

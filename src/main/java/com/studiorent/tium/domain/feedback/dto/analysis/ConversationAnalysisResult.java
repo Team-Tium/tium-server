@@ -11,7 +11,7 @@ import java.util.List;
  * 첫 번째 LLM의 분석 출력. 평가 등급이나 개선 피드백은 포함하지 않는다.
  * 근거 ID와 인용문의 원문 일치 여부는 입력과 대조하는 별도 검증이 필요하다.
  */
-public record ConversationAnalysisResult( // 대화문석 결과
+public record ConversationAnalysisResult( // 대화 분석 결과
         @NotBlank String contextSummary,
         @NotEmpty List<@NotBlank String> contextEvidenceMessageIds, //대화 근거 원본아이디들
         @NotEmpty List<@NotNull @Valid UtteranceAnalysis> utterances, // 발화별 분석

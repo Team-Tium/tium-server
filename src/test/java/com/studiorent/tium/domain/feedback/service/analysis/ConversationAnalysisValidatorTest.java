@@ -55,11 +55,11 @@ class ConversationAnalysisValidatorTest {
                 List.of("m1", "m2"), Arrays.asList(utterances), List.of());
     }
 
-    private void assertInvalid(ConversationAnalysisResult result) {
+    private void assertInvalid(ConversationAnalysisResult result, ErrorStatus expectedStatus) {
         assertThatThrownBy(() -> validator.validateResult(input(), result))
                 .isInstanceOfSatisfying(BusinessException.class,
                         exception -> org.assertj.core.api.Assertions.assertThat(exception.getBaseCode())
-                                .isEqualTo(ErrorStatus.FEEDBACK_ANALYSIS_INVALID_RESPONSE));
+                                .isEqualTo(expectedStatus));
     }
 
     @Test
@@ -85,17 +85,17 @@ class ConversationAnalysisValidatorTest {
 
     @Test
     void 발화_누락_중복_순서변경_존재하지_않는_ID를_거절한다() {
-        assertInvalid(result(emotion()));
-        assertInvalid(result(emotion(), emotion()));
-        assertInvalid(result(advice(), emotion()));
+        assertInvalid(result(emotion()), ErrorStatus.FEEDBACK_ANALYSIS_UTTERANCE_COUNT_MISMATCH);
+        assertInvalid(result(emotion(), emotion()), ErrorStatus.FEEDBACK_ANALYSIS_UTTERANCE_ORDER_MISMATCH);
+        assertInvalid(result(advice(), emotion()), ErrorStatus.FEEDBACK_ANALYSIS_UTTERANCE_ORDER_MISMATCH);
         var unknownId = new UtteranceAnalysis("m99", advice().purposeCandidates(), List.of(), List.of(), List.of());
-        assertInvalid(result(emotion(), unknownId));
+        assertInvalid(result(emotion(), unknownId), ErrorStatus.FEEDBACK_ANALYSIS_UTTERANCE_ORDER_MISMATCH);
     }
 
     @Test
     void 다른_화자의_원문을_목적_근거로_사용하면_거절한다() {
         var wrongQuote = new UtteranceAnalysis("m2", emotion().purposeCandidates(), List.of(), List.of(), List.of());
-        assertInvalid(result(emotion(), wrongQuote));
+        assertInvalid(result(emotion(), wrongQuote), ErrorStatus.FEEDBACK_ANALYSIS_PURPOSE_QUOTE_NOT_FOUND);
     }
 
     @Test
@@ -104,25 +104,25 @@ class ConversationAnalysisValidatorTest {
                 List.of("너무 슬퍼요."), List.of(), List.of());
         var inventedRequest = new UtteranceAnalysis("m1", emotion().purposeCandidates(),
                 List.of(), List.of("이야기를 들어주세요."), List.of());
-        assertInvalid(result(inventedEmotion, advice()));
-        assertInvalid(result(inventedRequest, advice()));
+        assertInvalid(result(inventedEmotion, advice()), ErrorStatus.FEEDBACK_ANALYSIS_EMOTION_QUOTE_NOT_FOUND);
+        assertInvalid(result(inventedRequest, advice()), ErrorStatus.FEEDBACK_ANALYSIS_REQUEST_QUOTE_NOT_FOUND);
     }
 
     @Test
     void 없는_맥락_근거_ID와_중복_ID를_거절한다() {
-        for (var ids : List.of(List.of("m99"), List.of("m1", "m1"))) {
-            assertInvalid(new ConversationAnalysisResult("맥락 요약", ids,
-                    List.of(emotion(), advice()), List.of()));
-        }
+        assertInvalid(new ConversationAnalysisResult("맥락 요약", List.of("m99"),
+                List.of(emotion(), advice()), List.of()), ErrorStatus.FEEDBACK_ANALYSIS_CONTEXT_EVIDENCE_ID_NOT_FOUND);
+        assertInvalid(new ConversationAnalysisResult("맥락 요약", List.of("m1", "m1"),
+                List.of(emotion(), advice()), List.of()), ErrorStatus.FEEDBACK_ANALYSIS_DUPLICATE_CONTEXT_EVIDENCE_ID);
     }
 
     @Test
     void 중첩된_목적_누락과_null_항목을_거절한다() {
         var missingPurpose = new UtteranceAnalysis("m2", List.of(new PurposeCandidate(
                 null, "이직", "목적 누락")), List.of(), List.of(), List.of());
-        assertInvalid(result(emotion(), missingPurpose));
-        assertInvalid(result(emotion(), null));
-        assertInvalid(null);
+        assertInvalid(result(emotion(), missingPurpose), ErrorStatus.FEEDBACK_ANALYSIS_INVALID_RESPONSE);
+        assertInvalid(result(emotion(), null), ErrorStatus.FEEDBACK_ANALYSIS_INVALID_RESPONSE);
+        assertInvalid(null, ErrorStatus.FEEDBACK_ANALYSIS_INVALID_RESPONSE);
     }
 
     @Test
@@ -131,9 +131,11 @@ class ConversationAnalysisValidatorTest {
         var valid = new UtteranceAnalysis("m2", List.of(unknown), List.of(), List.of(), List.of("의도가 불명확하다."));
         assertThatCode(() -> validator.validateResult(input(), result(emotion(), valid)))
                 .doesNotThrowAnyException();
-        assertInvalid(result(emotion(), new UtteranceAnalysis("m2", List.of(unknown), List.of(), List.of(), List.of())));
+        assertInvalid(result(emotion(), new UtteranceAnalysis("m2", List.of(unknown), List.of(), List.of(), List.of())),
+                ErrorStatus.FEEDBACK_ANALYSIS_INVALID_UNKNOWN_USAGE);
         assertInvalid(result(emotion(), new UtteranceAnalysis("m2",
-                List.of(unknown, advice().purposeCandidates().getFirst()), List.of(), List.of(), List.of("불확실"))));
+                List.of(unknown, advice().purposeCandidates().getFirst()), List.of(), List.of(), List.of("불확실"))),
+                ErrorStatus.FEEDBACK_ANALYSIS_INVALID_UNKNOWN_USAGE);
     }
 
     @Test
@@ -141,6 +143,6 @@ class ConversationAnalysisValidatorTest {
         var duplicate = new UtteranceAnalysis("m2",
                 List.of(advice().purposeCandidates().getFirst(), advice().purposeCandidates().getFirst()),
                 List.of(), List.of(), List.of());
-        assertInvalid(result(emotion(), duplicate));
+        assertInvalid(result(emotion(), duplicate), ErrorStatus.FEEDBACK_ANALYSIS_DUPLICATE_PURPOSE);
     }
 }

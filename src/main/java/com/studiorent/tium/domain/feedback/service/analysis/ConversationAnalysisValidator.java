@@ -31,19 +31,19 @@ public class ConversationAnalysisValidator {
 
     public void validateInput(ConversationAnalysisInput input) {
         if (input == null || !validator.validate(input).isEmpty()) {
-            throw new BusinessException(ErrorStatus.BAD_REQUEST);
+            throw new BusinessException(ErrorStatus.FEEDBACK_ANALYSIS_INVALID_INPUT);
         }
 
         Set<String> messageIds = new HashSet<>();
         boolean targetPresent = false;
         for (var message : input.messages()) {
             if (!messageIds.add(message.messageId())) { // 같은 발화 ID가 이미 있으면 add()는 false를 반환한다.
-                throw new BusinessException(ErrorStatus.BAD_REQUEST);
+                throw new BusinessException(ErrorStatus.FEEDBACK_ANALYSIS_DUPLICATE_MESSAGE_ID);
             }
             targetPresent |= message.speaker() == input.targetSpeaker(); // 대상 화자가 한 번이라도 등장하면 true를 유지한다.
         }
         if (!targetPresent) {
-            throw new BusinessException(ErrorStatus.BAD_REQUEST);
+            throw new BusinessException(ErrorStatus.FEEDBACK_ANALYSIS_TARGET_SPEAKER_MISSING);
         }
     }
 

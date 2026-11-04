@@ -119,7 +119,7 @@ class ConversationAnalysisServiceTest {
 
         assertThatThrownBy(() -> service.analyze(null))
                 .isInstanceOfSatisfying(BusinessException.class,
-                        exception -> assertThat(exception.getBaseCode()).isEqualTo(ErrorStatus.BAD_REQUEST));
+                        exception -> assertThat(exception.getBaseCode()).isEqualTo(ErrorStatus.FEEDBACK_ANALYSIS_INVALID_INPUT));
 
         verifyNoInteractions(chatModel);
     }

@@ -75,12 +75,14 @@ class ConversationAnalysisValidatorTest {
                 new Utterance("m1", Speaker.OTHER, "반가워요.")));
         var noTarget = new ConversationAnalysisInput(RelationShip.STRANGER, Speaker.ME,
                 List.of(new Utterance("m1", Speaker.OTHER, "안녕하세요.")));
-        for (var invalid : List.of(duplicate, noTarget)) {
-            assertThatThrownBy(() -> validator.validateInput(invalid))
-                    .isInstanceOfSatisfying(BusinessException.class,
-                            exception -> org.assertj.core.api.Assertions.assertThat(exception.getBaseCode())
-                                    .isEqualTo(ErrorStatus.BAD_REQUEST));
-        }
+        assertThatThrownBy(() -> validator.validateInput(duplicate))
+                .isInstanceOfSatisfying(BusinessException.class,
+                        exception -> org.assertj.core.api.Assertions.assertThat(exception.getBaseCode())
+                                .isEqualTo(ErrorStatus.FEEDBACK_ANALYSIS_DUPLICATE_MESSAGE_ID));
+        assertThatThrownBy(() -> validator.validateInput(noTarget))
+                .isInstanceOfSatisfying(BusinessException.class,
+                        exception -> org.assertj.core.api.Assertions.assertThat(exception.getBaseCode())
+                                .isEqualTo(ErrorStatus.FEEDBACK_ANALYSIS_TARGET_SPEAKER_MISSING));
     }
 
     @Test

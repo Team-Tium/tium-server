@@ -108,25 +108,36 @@ class ConversationAnalysisInputConverterTest {
     @Test
     void 저장_ID나_화자가_없으면_임의로_생성하지_않는다() {
         assertError(() -> converter.fromChatMessages(1L, RelationShip.STRANGER, List.of(chat(null, 1L, "안녕"))),
-                ErrorStatus.BAD_REQUEST);
+                ErrorStatus.FEEDBACK_ANALYSIS_INVALID_SOURCE_ID);
         assertError(() -> converter.fromChatMessages(1L, RelationShip.STRANGER, List.of(chat(1L, null, "안녕"))),
-                ErrorStatus.BAD_REQUEST);
+                ErrorStatus.FEEDBACK_ANALYSIS_INVALID_SOURCE_SPEAKER);
         assertError(() -> converter.fromCallSegments(1L, RelationShip.STRANGER,
-                List.of(segment(null, 1L, 0, 1, "안녕"))), ErrorStatus.BAD_REQUEST);
+                List.of(segment(null, 1L, 0, 1, "안녕"))), ErrorStatus.FEEDBACK_ANALYSIS_INVALID_SOURCE_ID);
     }
 
     @Test
     void 중복_ID와_공백_원문은_기존_입력_검증기로_거절한다() {
         assertError(() -> converter.fromChatMessages(1L, RelationShip.STRANGER,
-                List.of(chat(1L, 1L, "안녕"), chat(1L, 2L, "반가워"))), ErrorStatus.BAD_REQUEST);
+                List.of(chat(1L, 1L, "안녕"), chat(1L, 2L, "반가워"))), ErrorStatus.FEEDBACK_ANALYSIS_DUPLICATE_MESSAGE_ID);
         assertError(() -> converter.fromCallSegments(1L, RelationShip.STRANGER,
-                List.of(segment(1L, 1L, 0, 1, "  "))), ErrorStatus.BAD_REQUEST);
+                List.of(segment(1L, 1L, 0, 1, "  "))), ErrorStatus.FEEDBACK_ANALYSIS_INVALID_INPUT);
     }
 
     @Test
     void 관계와_대상_화자는_추정하지_않는다() {
-        assertError(() -> converter.fromChatMessages(1L, null, List.of(chat(1L, 1L, "안녕"))), ErrorStatus.BAD_REQUEST);
+        assertError(() -> converter.fromChatMessages(1L, null, List.of(chat(1L, 1L, "안녕"))), ErrorStatus.FEEDBACK_ANALYSIS_INVALID_INPUT);
         assertError(() -> converter.fromChatMessages(1L, RelationShip.STRANGER,
-                List.of(chat(1L, 2L, "안녕"))), ErrorStatus.BAD_REQUEST);
+                List.of(chat(1L, 2L, "안녕"))), ErrorStatus.FEEDBACK_ANALYSIS_TARGET_SPEAKER_MISSING);
+    }
+
+    @Test
+    void 잘못된_시작시각과_대상_사용자_누락을_구분한다() {
+        assertError(() -> converter.fromCallSegments(1L, RelationShip.STRANGER,
+                List.of(segment(1L, 1L, -1, 1, "안녕"))), ErrorStatus.FEEDBACK_ANALYSIS_INVALID_SOURCE_TIME);
+        var missingTime = CallSttSegment.builder().id(1L).speakerUserId(1L).text("안녕").build();
+        assertError(() -> converter.fromCallSegments(1L, RelationShip.STRANGER, List.of(missingTime)),
+                ErrorStatus.FEEDBACK_ANALYSIS_INVALID_SOURCE_TIME);
+        assertError(() -> converter.fromChatMessages(null, RelationShip.STRANGER, List.of(chat(1L, 1L, "안녕"))),
+                ErrorStatus.FEEDBACK_ANALYSIS_INVALID_INPUT);
     }
 }

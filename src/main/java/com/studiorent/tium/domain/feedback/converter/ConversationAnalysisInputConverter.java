@@ -71,22 +71,25 @@ public class ConversationAnalysisInputConverter {
     }
 
     private Speaker toSpeaker(Long memberId, Long speakerId) {
-        if (memberId == null || speakerId == null) {
-            throw new BusinessException(ErrorStatus.BAD_REQUEST);
+        if (memberId == null) {
+            throw new BusinessException(ErrorStatus.FEEDBACK_ANALYSIS_INVALID_INPUT);
+        }
+        if (speakerId == null) {
+            throw new BusinessException(ErrorStatus.FEEDBACK_ANALYSIS_INVALID_SOURCE_SPEAKER);
         }
         return memberId.equals(speakerId) ? Speaker.ME : Speaker.OTHER;
     }
 
     private Long requireId(Long id) {
         if (id == null || id <= 0) {
-            throw new BusinessException(ErrorStatus.BAD_REQUEST);
+            throw new BusinessException(ErrorStatus.FEEDBACK_ANALYSIS_INVALID_SOURCE_ID);
         }
         return id;
     }
 
     private Long requireStartTime(Long startedAtMs) {
         if (startedAtMs == null || startedAtMs < 0) {
-            throw new BusinessException(ErrorStatus.BAD_REQUEST);
+            throw new BusinessException(ErrorStatus.FEEDBACK_ANALYSIS_INVALID_SOURCE_TIME);
         }
         return startedAtMs;
     }

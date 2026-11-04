@@ -1,6 +1,7 @@
 package com.studiorent.tium.domain.call;
 
 import com.studiorent.tium.domain.call.entity.CallSttSegment;
+import com.studiorent.tium.domain.call.exception.CallErrorStatus;
 import com.studiorent.tium.domain.call.repository.CallSttJobRepository;
 import com.studiorent.tium.domain.call.repository.CallSttSegmentRepository;
 import com.studiorent.tium.domain.call.service.CallAccessValidator;
@@ -37,7 +38,7 @@ class CallSttFeedbackConversationTest {
 
     @Test
     void 권한_실패시_STT를_조회하지_않는다() {
-        var forbidden = new BusinessException(ErrorStatus.FORBIDDEN);
+        var forbidden = new BusinessException(CallErrorStatus.CALL_FORBIDDEN);
         when(accessValidator.validateParticipant(10L, 1L)).thenThrow(forbidden);
 
         assertThatThrownBy(() -> service.findSegmentsForFeedback(1L, 10L)).isSameAs(forbidden);

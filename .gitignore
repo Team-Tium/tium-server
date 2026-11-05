@@ -41,3 +41,8 @@ out/
 application-dev.yml
 .env
 CLAUDE.md
+
+### Local conversation analysis reference files ###
+/docs/ai/conversation-analysis.md
+/docs/ai/examples/
+/src/test/java/com/studiorent/tium/domain/feedback/service/analysis/ConversationAnalysisExamplesTest.java

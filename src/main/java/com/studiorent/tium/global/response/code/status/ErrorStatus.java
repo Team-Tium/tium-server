@@ -74,6 +74,15 @@ public enum ErrorStatus implements BaseCode {
     FEEDBACK_ANALYSIS_INVALID_UNKNOWN_USAGE(HttpStatus.INTERNAL_SERVER_ERROR, "FEEDBACK5011", "UNKNOWN 목적은 단독으로 사용하고 불확실성 설명을 포함해야 합니다."),
     FEEDBACK_ANALYSIS_EMOTION_QUOTE_NOT_FOUND(HttpStatus.INTERNAL_SERVER_ERROR, "FEEDBACK5012", "감정 인용문이 해당 발화 원문에 존재하지 않습니다."),
     FEEDBACK_ANALYSIS_REQUEST_QUOTE_NOT_FOUND(HttpStatus.INTERNAL_SERVER_ERROR, "FEEDBACK5013", "요청 인용문이 해당 발화 원문에 존재하지 않습니다."),
+    FEEDBACK_ANALYSIS_API_AUTH_FAILED(HttpStatus.BAD_GATEWAY, "FEEDBACK5014", "대화 분석 API 인증에 실패했습니다."),
+    FEEDBACK_ANALYSIS_API_PERMISSION_DENIED(HttpStatus.BAD_GATEWAY, "FEEDBACK5015", "대화 분석 API 접근 권한이 없습니다."),
+    FEEDBACK_ANALYSIS_MODEL_UNAVAILABLE(HttpStatus.BAD_GATEWAY, "FEEDBACK5016", "설정된 대화 분석 모델을 사용할 수 없습니다."),
+    FEEDBACK_ANALYSIS_API_RATE_LIMITED(HttpStatus.SERVICE_UNAVAILABLE, "FEEDBACK5017", "대화 분석 API 호출이 일시적으로 제한되었습니다."),
+    FEEDBACK_ANALYSIS_API_QUOTA_EXCEEDED(HttpStatus.SERVICE_UNAVAILABLE, "FEEDBACK5018", "대화 분석 API 사용량 한도를 초과했습니다."),
+    FEEDBACK_ANALYSIS_API_TIMEOUT(HttpStatus.GATEWAY_TIMEOUT, "FEEDBACK5019", "대화 분석 API 응답 시간이 초과되었습니다."),
+    FEEDBACK_ANALYSIS_API_CONNECTION_FAILED(HttpStatus.BAD_GATEWAY, "FEEDBACK5020", "대화 분석 API에 연결하지 못했습니다."),
+    FEEDBACK_ANALYSIS_API_FAILED(HttpStatus.BAD_GATEWAY, "FEEDBACK5021", "대화 분석 API 요청 처리에 실패했습니다."),
+    FEEDBACK_ANALYSIS_RESPONSE_CONVERSION_FAILED(HttpStatus.BAD_GATEWAY, "FEEDBACK5022", "대화 분석 응답을 지정된 JSON 구조로 변환하지 못했습니다."),
 
     // Call STT Error
     CALL_STT_NOT_FOUND(HttpStatus.NOT_FOUND, "CALL_STT4041", "통화 STT 내역이 존재하지 않습니다."),
@@ -91,4 +100,23 @@ public enum ErrorStatus implements BaseCode {
     private final HttpStatus httpStatus;
     private final String code;
     private final String message;
+
+    /**
+     * 대화 분석 API의 HTTP 상태와 외부 오류 코드를 서비스 오류로 변환한다.
+     * 외부 SDK 예외 타입에 의존하지 않도록 필요한 값만 받는다.
+     */
+    public static ErrorStatus fromAnalysisApiError(int statusCode, String apiErrorCode) {
+        return switch (statusCode) {
+            case 401 -> FEEDBACK_ANALYSIS_API_AUTH_FAILED;
+            case 403 -> FEEDBACK_ANALYSIS_API_PERMISSION_DENIED;
+            case 404 -> "model_not_found".equals(apiErrorCode)
+                    ? FEEDBACK_ANALYSIS_MODEL_UNAVAILABLE
+                    : FEEDBACK_ANALYSIS_API_FAILED;
+            case 429 -> "insufficient_quota".equals(apiErrorCode)
+                    ? FEEDBACK_ANALYSIS_API_QUOTA_EXCEEDED
+                    : FEEDBACK_ANALYSIS_API_RATE_LIMITED;
+            case 408, 504 -> FEEDBACK_ANALYSIS_API_TIMEOUT;
+            default -> FEEDBACK_ANALYSIS_API_FAILED;
+        };
+    }
 }

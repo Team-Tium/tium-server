@@ -3,7 +3,10 @@ package com.studiorent.tium.domain.matching.service;
 import com.studiorent.tium.domain.matching.entity.Matching;
 import com.studiorent.tium.domain.matching.entity.enums.MatchingType;
 import com.studiorent.tium.domain.matching.repository.MatchingRepository;
+import com.studiorent.tium.global.exception.BusinessException;
+import com.studiorent.tium.global.response.code.status.ErrorStatus;
 import lombok.RequiredArgsConstructor;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -36,9 +39,19 @@ public class MatchingQueueService {
                 });
     }
 
+    /**
+     * 대기열에 자리를 만든다.
+     *
+     * <p>같은 회원의 요청 두 개가 동시에 대기 여부 확인을 통과하면 두 번째 삽입이 회원 유니크 제약에 걸린다.
+     * 그 충돌을 이미 대기 중인 것으로 보고 {@code MATCHING4091}로 바꾼다.
+     */
     @Transactional
     public void add(Long memberId, MatchingType type) {
-        matchingRepository.save(Matching.enqueue(memberId, type));
+        try {
+            matchingRepository.saveAndFlush(Matching.enqueue(memberId, type));
+        } catch (DataIntegrityViolationException e) {
+            throw new BusinessException(ErrorStatus.MATCHING_ALREADY_WAITING);
+        }
     }
 
     /** 대기 중이던 자리를 지운다. 지운 자리가 없으면 false를 돌려준다. */

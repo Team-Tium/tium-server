@@ -1,6 +1,7 @@
 package com.studiorent.tium.domain.matching.controller;
 
 import com.studiorent.tium.domain.matching.dto.MatchingRequestDTO;
+import com.studiorent.tium.domain.matching.dto.MatchingResponseDTO;
 import com.studiorent.tium.domain.matching.service.command.MatchingCommandService;
 import com.studiorent.tium.global.response.ApiResponse;
 import com.studiorent.tium.global.security.CustomUserDetails;
@@ -24,15 +25,15 @@ public class MatchingController {
     private final MatchingCommandService matchingCommandService;
 
     @Operation(summary = "매칭 대기",
-            description = "대기 중인 상대가 있으면 바로 채팅방을 만들고, 없으면 대기열에 들어간다. "
+            description = "대기 중인 상대가 있으면 바로 채팅방을 만들어 방 ID와 상대를 돌려준다(matched=true). "
+                    + "없으면 대기열에 들어가고(matched=false) 짝이 정해지면 MATCHED 소켓 이벤트로 알린다. "
                     + "현재는 CHAT만 받는다(MATCHING4001). 이미 대기 중이면 MATCHING4091.")
     @PostMapping
-    public ApiResponse<Void> enqueue(
+    public ApiResponse<MatchingResponseDTO.EnqueueResultDTO> enqueue(
             @AuthenticationPrincipal CustomUserDetails userDetails,
             @Valid @RequestBody MatchingRequestDTO.EnqueueDTO request) {
 
-        matchingCommandService.enqueue(userDetails.getMemberId(), request);
-        return ApiResponse.onSuccess(null);
+        return ApiResponse.onSuccess(matchingCommandService.enqueue(userDetails.getMemberId(), request));
     }
 
     @Operation(summary = "매칭 대기 취소",

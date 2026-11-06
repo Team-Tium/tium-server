@@ -75,12 +75,14 @@ class ConversationAnalysisValidatorTest {
                 new Utterance("m1", Speaker.OTHER, "반가워요.")));
         var noTarget = new ConversationAnalysisInput(RelationShip.STRANGER, Speaker.ME,
                 List.of(new Utterance("m1", Speaker.OTHER, "안녕하세요.")));
-        for (var invalid : List.of(duplicate, noTarget)) {
-            assertThatThrownBy(() -> validator.validateInput(invalid))
-                    .isInstanceOfSatisfying(BusinessException.class,
-                            exception -> org.assertj.core.api.Assertions.assertThat(exception.getBaseCode())
-                                    .isEqualTo(ErrorStatus.BAD_REQUEST));
-        }
+        assertThatThrownBy(() -> validator.validateInput(duplicate))
+                .isInstanceOfSatisfying(BusinessException.class,
+                        exception -> org.assertj.core.api.Assertions.assertThat(exception.getBaseCode())
+                                .isEqualTo(ErrorStatus.FEEDBACK_ANALYSIS_DUPLICATE_MESSAGE_ID));
+        assertThatThrownBy(() -> validator.validateInput(noTarget))
+                .isInstanceOfSatisfying(BusinessException.class,
+                        exception -> org.assertj.core.api.Assertions.assertThat(exception.getBaseCode())
+                                .isEqualTo(ErrorStatus.FEEDBACK_ANALYSIS_TARGET_SPEAKER_MISSING));
     }
 
     @Test
@@ -144,5 +146,27 @@ class ConversationAnalysisValidatorTest {
                 List.of(advice().purposeCandidates().getFirst(), advice().purposeCandidates().getFirst()),
                 List.of(), List.of(), List.of());
         assertInvalid(result(emotion(), duplicate), ErrorStatus.FEEDBACK_ANALYSIS_DUPLICATE_PURPOSE);
+    }
+
+    @Test
+    void 명시한_범위보다_많은_발화를_입력하면_거절한다() {
+        var original = input();
+        for (int limit : List.of(0, 1)) {
+            var oversized = new ConversationAnalysisInput(original.relationship(), original.targetSpeaker(),
+                    original.messages(), new ConversationAnalysisInput.Scope(limit, "최근 발화만 분석"));
+            assertThatThrownBy(() -> validator.validateInput(oversized))
+                    .isInstanceOfSatisfying(BusinessException.class,
+                            exception -> org.assertj.core.api.Assertions.assertThat(exception.getBaseCode())
+                                    .isEqualTo(ErrorStatus.FEEDBACK_ANALYSIS_INVALID_INPUT));
+        }
+    }
+
+    @Test
+    void 범위_이하의_발화와_정상_분석은_허용한다() {
+        var original = input();
+        var scoped = new ConversationAnalysisInput(original.relationship(), original.targetSpeaker(),
+                original.messages(), new ConversationAnalysisInput.Scope(200, "통화 최근 최대 200개 발화"));
+        assertThatCode(() -> validator.validateResult(scoped, result(emotion(), advice())))
+                .doesNotThrowAnyException();
     }
 }

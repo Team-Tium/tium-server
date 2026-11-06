@@ -65,6 +65,9 @@ public enum ErrorStatus implements BaseCode {
     FEEDBACK_CONVERSATION_EMPTY(HttpStatus.BAD_REQUEST, "FEEDBACK4001", "피드백을 생성할 대화가 없습니다."),
     FEEDBACK_AUDIO_EMPTY(HttpStatus.BAD_REQUEST, "FEEDBACK4002", "피드백을 생성할 녹음 파일이 비어있습니다."),
     FEEDBACK_AUDIO_UNSUPPORTED(HttpStatus.BAD_REQUEST, "FEEDBACK4003", "지원하지 않는 녹음 파일 형식입니다."),
+    FEEDBACK_ANALYSIS_INVALID_INPUT(HttpStatus.BAD_REQUEST, "FEEDBACK4004", "대화 분석 입력의 필수 값 또는 형식이 올바르지 않습니다."),
+    FEEDBACK_ANALYSIS_DUPLICATE_MESSAGE_ID(HttpStatus.BAD_REQUEST, "FEEDBACK4005", "대화 분석 입력의 발화 ID가 중복되었습니다."),
+    FEEDBACK_ANALYSIS_TARGET_SPEAKER_MISSING(HttpStatus.BAD_REQUEST, "FEEDBACK4006", "분석 대상 사용자의 발화가 없습니다."),
     FEEDBACK_NOT_FOUND(HttpStatus.NOT_FOUND, "FEEDBACK404", "피드백이 존재하지 않습니다"),
     FEEDBACK_INVALID_RESPONSE(HttpStatus.INTERNAL_SERVER_ERROR, "FEEDBACK5002", "피드백 응답 형식이 올바르지 않습니다."),
     FEEDBACK_CRITERIA_FILE_READ_FAILED(HttpStatus.INTERNAL_SERVER_ERROR,    "FEEDBACK5001","피드백 기준 파일을 읽지 못했습니다." ),
@@ -88,6 +91,9 @@ public enum ErrorStatus implements BaseCode {
     FEEDBACK_ANALYSIS_API_CONNECTION_FAILED(HttpStatus.BAD_GATEWAY, "FEEDBACK5020", "대화 분석 API에 연결하지 못했습니다."),
     FEEDBACK_ANALYSIS_API_FAILED(HttpStatus.BAD_GATEWAY, "FEEDBACK5021", "대화 분석 API 요청 처리에 실패했습니다."),
     FEEDBACK_ANALYSIS_RESPONSE_CONVERSION_FAILED(HttpStatus.BAD_GATEWAY, "FEEDBACK5022", "대화 분석 응답을 지정된 JSON 구조로 변환하지 못했습니다."),
+    FEEDBACK_ANALYSIS_INVALID_SOURCE_ID(HttpStatus.INTERNAL_SERVER_ERROR, "FEEDBACK5023", "분석할 저장 발화의 ID가 올바르지 않습니다."),
+    FEEDBACK_ANALYSIS_INVALID_SOURCE_SPEAKER(HttpStatus.INTERNAL_SERVER_ERROR, "FEEDBACK5024", "분석할 저장 발화의 화자 정보가 없습니다."),
+    FEEDBACK_ANALYSIS_INVALID_SOURCE_TIME(HttpStatus.INTERNAL_SERVER_ERROR, "FEEDBACK5025", "분석할 통화 발화의 시작 시각이 올바르지 않습니다."),
 
     // Call STT Error
     CALL_STT_NOT_FOUND(HttpStatus.NOT_FOUND, "CALL_STT4041", "통화 STT 내역이 존재하지 않습니다."),

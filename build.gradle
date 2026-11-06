@@ -64,6 +64,8 @@ tasks.register('liveApiTest', Test) {
     useJUnitPlatform {
         includeTags 'live-api'
     }
+    // 예: -PpreviewCase=requested_advice 로 미리보기의 특정 사례만 실행한다.
+    systemProperty 'preview.case', providers.gradleProperty('previewCase').orElse('all').get()
     // 이전 성공 결과를 재사용하지 않고 명시적인 실행마다 연결을 확인한다.
     outputs.upToDateWhen { false }
 }

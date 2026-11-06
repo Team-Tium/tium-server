@@ -194,23 +194,20 @@ class ConversationAnalysisLiveApiTest {
                 .flatMap(turn -> turn.purposeCandidates().stream()).map(ConversationAnalysisResult.PurposeCandidate::purpose)
                 .collect(Collectors.toSet());
         var selected = new LinkedHashMap<String, Object>();
-        selected.put("version", rubric.version());
-        selected.put("source", rubric.source());
+
         selected.put("commonGuidelines", rubric.commonGuidelines());
-        selected.put("analysisReviewGuidelines", rubric.analysisReviewGuidelines());
         selected.put("assessmentStatuses", rubric.assessmentStatuses());
         selected.put("assessmentInstructions", rubric.assessmentInstructions());
+
         var criteria = new ArrayList<>(rubric.commonCriteria());
         rubric.purposeCriteria().stream().filter(group -> purposes.contains(group.purpose()))
                 .forEach(group -> criteria.addAll(group.criteria()));
         rubric.relationshipCriteria().stream().filter(group -> group.relationship() == input.relationship())
                 .forEach(group -> criteria.addAll(group.criteria()));
         selected.put("criteria", criteria);
-        selected.put("purposeHandling", rubric.purposeHandling().stream()
-                .filter(group -> purposes.contains(group.purpose())).toList());
         selected.put("contextEvaluationInstructions", rubric.contextEvaluationInstructions());
         selected.put("gradingPolicy", rubric.gradingPolicy());
-        // reviewExamples와 기대 판정은 보내지 않아 이번 대화와 정답의 혼동을 피한다.
+        // 버전은 결과 기록에만 남기고 검토용 예시는 테스트 리소스에서 별도로 관리한다.
         return selected;
     }
 
@@ -312,7 +309,7 @@ class ConversationAnalysisLiveApiTest {
     private static final String PREVIEW_SYSTEM_PROMPT = """
             너는 대화 피드백 평가기다. JSON의 conversation 원본, analysis 참고 분석, rubric 평가 기준을 사용한다.
             targetSpeaker의 발화만 평가하고 상대 발화는 맥락으로 참고한다. 분석의 의도 추정은 사실로 확정하지 않는다.
-            rubric의 공통 지침·분석 검토 지침·목적 및 관계 기준·판정 상태·적용 조건·제외 조건을 따른다.
+            rubric의 공통 지침, 분석 검토 지침·목적 및 관계 기준, 판정 상태, 적용 조건, 제외 조건을 따른다.
             특히 위반 증거가 없다는 것과 충족 증거가 있다는 것을 구분하고, 적용되지 않는 기준은 NOT_APPLICABLE로 둔다.
             모든 사용자 발화를 대상으로 공통 기준을 확인한다. 기준을 한 항목씩 평가하되 같은 사건은 중복 문제로 설명하지 않는다.
             assessments에는 기준 ID, 대상 발화 ID, SATISFIED/VIOLATED/NOT_APPLICABLE/INSUFFICIENT_CONTEXT,

@@ -9,6 +9,8 @@ import org.junit.jupiter.api.Test;
 import org.springframework.core.io.ClassPathResource;
 import tools.jackson.databind.ObjectMapper;
 
+import java.util.List;
+import java.util.Arrays;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.stream.Collectors;
@@ -38,13 +40,13 @@ class ConversationEvaluationRubricTest {
         var rubric = loadRubric();
         var purposes = new ArrayList<UtterancePurpose>();
         rubric.purposeCriteria().forEach(group -> purposes.add(group.purpose()));
-        rubric.purposeHandling().forEach(group -> purposes.add(group.purpose()));
 
-        assertThat(purposes).containsExactlyInAnyOrder(UtterancePurpose.values());
+        assertThat(purposes).containsExactlyInAnyOrderElementsOf(Arrays.stream(UtterancePurpose.values())
+                .filter(p -> p != UtterancePurpose.OTHER && p != UtterancePurpose.UNKNOWN).toList());
+        assertThat(rubric.commonGuidelines()).extracting(ConversationEvaluationRubric.Guideline::id)
+                .contains("analysis.other", "analysis.unknown");
         assertThat(rubric.purposeCriteria()).extracting(ConversationEvaluationRubric.PurposeCriteria::purpose)
                 .doesNotContain(UtterancePurpose.OTHER, UtterancePurpose.UNKNOWN);
-        assertThat(rubric.purposeHandling()).extracting(ConversationEvaluationRubric.PurposeHandling::purpose)
-                .containsExactlyInAnyOrder(UtterancePurpose.OTHER, UtterancePurpose.UNKNOWN);
     }
 
     @Test
@@ -59,7 +61,6 @@ class ConversationEvaluationRubricTest {
         var rubric = loadRubric();
         var ids = new ArrayList<String>();
         rubric.commonGuidelines().forEach(guideline -> ids.add(guideline.id()));
-        rubric.analysisReviewGuidelines().forEach(guideline -> ids.add(guideline.id()));
         rubric.commonCriteria().forEach(criterion -> ids.add(criterion.id()));
         rubric.purposeCriteria().forEach(group -> group.criteria().forEach(criterion -> ids.add(criterion.id())));
         rubric.relationshipCriteria().forEach(group -> group.criteria().forEach(criterion -> ids.add(criterion.id())));
@@ -81,12 +82,12 @@ class ConversationEvaluationRubricTest {
         rubric.commonCriteria().forEach(criterion -> criterionIds.add(criterion.id()));
         rubric.purposeCriteria().forEach(group -> group.criteria().forEach(criterion -> criterionIds.add(criterion.id())));
         rubric.relationshipCriteria().forEach(group -> group.criteria().forEach(criterion -> criterionIds.add(criterion.id())));
-        assertThat(rubric.reviewExamples()).extracting(ConversationEvaluationRubric.ReviewExample::id)
+        assertThat(loadExamples().reviewExamples()).extracting(ConversationEvaluationReviewExamples.ReviewExample::id)
                 .doesNotHaveDuplicates();
 
-        for (var example : rubric.reviewExamples()) {
+        for (var example : loadExamples().reviewExamples()) {
             var messageIds = example.messages().stream()
-                    .map(ConversationEvaluationRubric.ExampleUtterance::messageId).collect(Collectors.toSet());
+                    .map(ConversationEvaluationReviewExamples.ExampleUtterance::messageId).collect(Collectors.toSet());
             assertThat(messageIds).hasSize(example.messages().size());
             for (var assessment : example.expectedAssessments()) {
                 assertThat(criterionIds).as(example.id()).contains(assessment.criterionId());
@@ -97,7 +98,7 @@ class ConversationEvaluationRubricTest {
 
     @Test
     void 반례는_위반일_때만_심각도와_해소여부를_설정한다() throws Exception {
-        for (var example : loadRubric().reviewExamples()) {
+        for (var example : loadExamples().reviewExamples()) {
             for (var assessment : example.expectedAssessments()) {
                 if (assessment.status() == AssessmentStatus.VIOLATED) {
                     assertThat(assessment.severity()).as(example.id()).isNotNull();
@@ -106,6 +107,15 @@ class ConversationEvaluationRubricTest {
                     assertThat(assessment.resolved()).as(example.id()).isFalse();
                 }
             }
+        }
+    }
+
+    private ConversationEvaluationReviewExamples loadExamples() throws Exception {
+        var resource = new ClassPathResource("conversationEvaluationReviewExamples.json");
+        try (var stream = resource.getInputStream(); var factory = Validation.buildDefaultValidatorFactory()) {
+            var examples = new ObjectMapper().readValue(stream, ConversationEvaluationReviewExamples.class);
+            assertThat(factory.getValidator().validate(examples)).isEmpty();
+            return examples;
         }
     }
 }

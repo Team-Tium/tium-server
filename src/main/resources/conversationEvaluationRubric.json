@@ -1,38 +1,41 @@
 {
-  "version": "1.2",
-  "source": "관계·발화 목적·맥락 평가 구조를 바탕으로 작성한 기준 초안.",
+  "version": "1.3",
   "commonGuidelines": [
     {
       "id": "common.target",
       "instruction": "분석 대상 사용자의 발화를 평가하고 상대 발화는 맥락으로 사용한다. 입력으로 제공한 대화 범위만 평가한다."
     },
     {
-      "id": "common.evidence",
-      "instruction": "각 판단에는 실제 발화 ID와 수정하지 않은 원문 인용을 남긴다. 기준의 존재만으로 위반이 발생했다고 판단하지 않는다."
-    },
-    {
       "id": "common.uncertainty",
       "instruction": "관찰된 표현과 추정한 의도를 구분한다. 목적 후보는 확정된 의도가 아니며 정보가 부족하면 판단을 보류한다."
-    },
-    {
-      "id": "common.context",
-      "instruction": "단일 문장뿐 아니라 앞뒤 반응, 상대의 명시적 요청과 경계, 이후 사과·정정으로 문제가 해소됐는지를 고려한다."
     },
     {
       "id": "common.no_invention",
       "instruction": "감정, 친밀도, 반복 행동, 대화 밖의 사건 및 출처를 만들어내지 않는다. 평가할 근거가 없으면 장점이나 문제를 억지로 만들지 않는다."
     },
     {
-      "id": "common.examples",
-      "instruction": "reviewExamples는 팀 검토용 반례이며 현재 입력 대화의 사실이나 실제 모델의 검증 결과로 사용하지 않는다."
-    },
-    {
       "id": "common.positive_evidence",
       "instruction": "장점은 상대의 제약을 반영하거나 명시적 질문에 적절히 답하는 등 원문에서 확인되는 구체적인 유익한 행동에 한정한다. 모욕·위협·강요가 없다는 사실만으로 장점을 만들지 않는다. 근거가 없으면 장점 목록은 빈 배열이다."
     },
     {
-      "id": "common.response_opportunity",
-      "instruction": "대화가 끝나거나 분석 범위가 잘린 뒤의 행동은 관찰되지 않은 것이다. 뒤에 사용자 발화가 없다는 사실만으로 응답·공감·사과·후속 제안을 하지 않았다고 지적하거나 압박을 멈췄다고 칭찬하지 않는다. 실제 후속 발화가 제공된 범위에서만 행동과 문제 해소 여부를 판단한다."
+      "id": "analysis.purpose_support",
+      "instruction": "목적 후보의 근거가 실제 원문에 있는지 확인한다. 분석 모델의 분류 오류는 사용자의 대화 문제로 기록하지 않는다."
+    },
+    {
+      "id": "analysis.evaluability",
+      "instruction": "목적이나 맥락을 판단할 수 없는 경우 평가 가능 여부를 보류한다. OTHER·UNKNOWN 분류 자체는 감점 사유가 아니다."
+    },
+    {
+      "id": "analysis.available_signals",
+      "instruction": "현재 입력은 시간순 텍스트이며 발화 간 침묵, 동시 발화, 끼어들기, 억양, 표정 정보가 없다. 연속된 STT 세그먼트 수로 발언 독점이나 끼어들기를 추정하지 않는다."
+    },
+    {
+      "id": "analysis.other",
+      "instruction": "OTHER: 기존 목록 밖의 목적을 설명하는 분석 근거를 먼저 확인한다. 이 확인은 사용자에 대한 채점 항목이 아니다. 확인된 목적에 맞는 고정 기준이 없으면 목적별 평가는 보류한다. 공통·관계 기준은 실제 적용 가능한 부분만 평가한다. 사과·인사 등 서로 다른 목적에 동일한 문제 기준을 적용하거나 새 사회적 의무를 만들어 감점하지 않는다."
+    },
+    {
+      "id": "analysis.unknown",
+      "instruction": "UNKNOWN: 목적별 평가는 판단 보류하며 UNKNOWN 자체를 문제로 기록하지 않는다. 원문에 명확히 드러난 행동은 공통·관계 기준으로 평가할 수 있다. 목적 불명확성과 명백한 위협의 존재를 혼동하지 않는다."
     }
   ],
   "purposeCriteria": [
@@ -301,32 +304,18 @@
     "고정 기준의 맥락상 의미를 확인할 필요가 있을 때만 추가 질문을 만든다. 새로운 대화 예절이나 의무를 만들어내지 않는다.",
     "각 추가 질문에는 고유 ID, baseCriterionId, 질문, 적용 이유, 근거 발화 ID를 남긴다. baseCriterionId는 전달된 고정 기준 중 하나여야 한다.",
     "추가 질문은 연결된 고정 기준의 적용 범위를 확장하거나 제외 조건을 무시할 수 없다.",
-    "감정 인정 여부나 조언 요청 확인은 맥락 확인용 질문으로 사용할 수 있다. 이를 하지 않았다는 사실만으로 MINOR·MAJOR를 부여하지 않는다.",
+    "감정 인정 여부나 조언 요청 확인은 맥락 확인용 질문으로 사용할 수 있다. 이를 하지 않았다는 사실만으로 MINOR,MAJOR를 부여하지 않는다.",
     "문제로 판단하려면 연결된 고정 기준의 위반 조건과 실제 원문 근거를 충족해야 한다. 충족하지 않으면 위반으로 기록하지 않는다.",
     "같은 사건을 고정 기준과 맥락 질문에서 중복 문제로 집계하지 않는다. 추가 질문의 개수는 심각도나 전체 등급에 영향을 주지 않는다.",
     "분석 구간 밖 맥락이나 음성 정보가 필요한 경우 판단을 보류하고 어떤 정보가 부족한지 적는다."
   ],
   "gradingPolicy": {
-    "minor": "적용 가능한 고정 기준에서 VIOLATED가 확인되고 개선이 필요하지만 중대한 위협·강요 등에 해당하지 않는 경우. 질문 무응답 자체가 아니라 명시적 요청이 실제로 미해결인지와 거절 권리를 확인한다.",
-    "major": "상대를 향한 명확한 모욕·위협, 불이익을 내세운 강요, 명시적 경계의 중대한 침해가 원문으로 확인된 경우. 불편할 가능성만으로 부여하지 않는다.",
+    "minor": "적용 가능한 고정 기준에서 VIOLATED가 확인되고 개선이 필요하지만 중대한 위협,강요 등에 해당하지 않는 경우. 질문 무응답 자체가 아니라 명시적 요청이 실제로 미해결인지와 거절 권리를 확인한다.",
+    "major": "상대를 향한 명확한 모욕,위협, 불이익을 내세운 강요, 명시적 경계의 중대한 침해가 원문으로 확인된 경우. 불편할 가능성만으로 부여하지 않는다.",
     "good": "적절한 반응의 근거가 있고 미해결 MINOR와 확인된 MAJOR가 없으며 전체 판단을 막는 핵심 정보 부족이 없는 경우. NOT_APPLICABLE이나 일부 관련 없는 정보 부족은 감점하지 않는다.",
     "ambiguous": "확인된 MAJOR 없이 미해결 MINOR가 있거나, 전체 판단을 실제로 막는 핵심 정보가 부족한 경우. 개선 필요와 판단 보류의 이유를 구분한다.",
     "bad": "MAJOR가 확인된 경우. 사과나 정정 여부는 별도 설명하되 중대한 문제의 발생 사실을 삭제하지 않는다. 모델이 만든 추가 질문의 미충족만으로 부여하지 않는다."
   },
-  "analysisReviewGuidelines": [
-    {
-      "id": "analysis.purpose_support",
-      "instruction": "목적 후보의 근거가 실제 원문에 있는지 확인한다. 분석 모델의 분류 오류는 사용자의 대화 문제로 기록하지 않는다."
-    },
-    {
-      "id": "analysis.evaluability",
-      "instruction": "목적이나 맥락을 판단할 수 없는 경우 평가 가능 여부를 보류한다. OTHER·UNKNOWN 분류 자체는 감점 사유가 아니다."
-    },
-    {
-      "id": "analysis.available_signals",
-      "instruction": "현재 입력은 시간순 텍스트이며 발화 간 침묵, 동시 발화, 끼어들기, 억양, 표정 정보가 없다. 연속된 STT 세그먼트 수로 발언 독점이나 끼어들기를 추정하지 않는다."
-    }
-  ],
   "assessmentStatuses": [
     {
       "status": "SATISFIED",
@@ -352,8 +341,7 @@
     "같은 사건이 목적 기준·관계 기준·맥락 질문에 걸려도 하나의 문제로 묶고 관련 기준을 연결한다. 기준 개수로 심각도를 높이지 않는다.",
     "문제의 발생과 해소 여부를 구분한다. 사과·정정 이후 실제로 요청에 응답하거나 압박을 멈췄는지 확인한다. 사과라는 단어만으로 자동 해소하지 않는다.",
     "목적·관계와 관계없이 commonCriteria를 항상 확인한다. UNKNOWN이어도 명시적 모욕·위협을 평가에서 누락하지 않는다.",
-    "일부 기준의 정보 부족이 전체 등급 판단을 막는지 별도로 설명한다. 관련 없는 기준의 정보 부족만으로 전체 등급을 AMBIGUOUS로 낮추지 않는다.",
-    "최종 등급은 확인된 문제와 해소 여부, 핵심 판단 가능성을 정리한 결과에서 결정한다. 질문 수나 적용한 기준 수로 점수를 합산하지 않는다.",
+    "질문 수나 적용한 기준 수로 점수를 합산하지 않는다. 전체 등급은 gradingPolicy를 따른다.",
     "위반이 확인되지 않았다는 사실을 곧바로 SATISFIED나 사용자 장점으로 바꾸지 않는다. SATISFIED에는 충족한 실제 행동의 근거가 필요하며 단순한 부재는 적용 여부와 정보 충분성을 다시 판단한다.",
     "상대가 마지막에 제약이나 요청을 밝혔다면 그 뒤에 사용자 발화가 있는지 먼저 확인한다. 없으면 이후 대응은 미관측이며 별도 위반이나 장점으로 집계하지 않는다."
   ],
@@ -381,318 +369,6 @@
         "경계가 제시되지 않았다는 사실만으로 경계 침해나 동의를 추정하지 않는다.",
         "서로 동의하여 이어가는 주제와 명시적 거절을 구분한다."
       ]
-    }
-  ],
-  "purposeHandling": [
-    {
-      "purpose": "OTHER",
-      "instructions": [
-        "기존 목록 밖의 목적을 설명하는 분석 근거를 먼저 확인한다. 이 확인은 사용자에 대한 채점 항목이 아니다.",
-        "확인된 목적에 맞는 고정 기준이 없으면 목적별 평가는 보류한다. 공통·관계 기준은 실제 적용 가능한 부분만 평가한다.",
-        "사과·인사 등 서로 다른 목적에 동일한 문제 기준을 적용하거나 새 사회적 의무를 만들어 감점하지 않는다."
-      ]
-    },
-    {
-      "purpose": "UNKNOWN",
-      "instructions": [
-        "목적별 평가는 판단 보류하며 UNKNOWN 자체를 문제로 기록하지 않는다.",
-        "원문에 명확히 드러난 행동은 공통·관계 기준으로 평가할 수 있다. 목적 불명확성과 명백한 위협의 존재를 혼동하지 않는다."
-      ]
-    }
-  ],
-  "reviewExamples": [
-    {
-      "id": "example.simple_invitation",
-      "scenario": "가벼운 제안에 문제 해결용 기준을 적용하지 않기",
-      "messages": [
-        {
-          "messageId": "e1",
-          "speaker": "ME",
-          "text": "점심 같이 먹을래?"
-        },
-        {
-          "messageId": "e2",
-          "speaker": "OTHER",
-          "text": "좋아."
-        }
-      ],
-      "expectedAssessments": [
-        {
-          "criterionId": "purpose.advice.understanding",
-          "status": "NOT_APPLICABLE",
-          "evidenceMessageIds": [
-            "e1"
-          ],
-          "severity": null,
-          "resolved": false,
-          "reason": "공동 활동 제안이며 해결할 문제의 사전 파악은 필요하지 않다."
-        },
-        {
-          "criterionId": "purpose.advice.autonomy",
-          "status": "SATISFIED",
-          "evidenceMessageIds": [
-            "e1",
-            "e2"
-          ],
-          "severity": null,
-          "resolved": false,
-          "reason": "의향을 묻고 상대가 자발적으로 수락했다."
-        }
-      ],
-      "note": "사전 감정 확인이나 문제 파악이 없다는 이유로 지적하지 않는다."
-    },
-    {
-      "id": "example.explicit_advice_request",
-      "scenario": "명시적으로 조언을 원한 상대에게 바로 조언하기",
-      "messages": [
-        {
-          "messageId": "e1",
-          "speaker": "OTHER",
-          "text": "당장 수입이 끊기면 안 되는데 이직 고민이야. 뭘 먼저 하면 좋을까?"
-        },
-        {
-          "messageId": "e2",
-          "speaker": "ME",
-          "text": "퇴사 전에 다른 회사 채용 조건부터 비교해 보면 어때?"
-        }
-      ],
-      "expectedAssessments": [
-        {
-          "criterionId": "purpose.advice.understanding",
-          "status": "SATISFIED",
-          "evidenceMessageIds": [
-            "e1",
-            "e2"
-          ],
-          "severity": null,
-          "resolved": false,
-          "reason": "수입 유지라는 제약과 명시적 조언 요청을 고려했다."
-        }
-      ],
-      "note": "공감 문장을 먼저 말하지 않았다는 이유만으로 문제를 추가하지 않는다."
-    },
-    {
-      "id": "example.segmented_speech",
-      "scenario": "STT 분할을 끼어들기나 독점으로 오해하지 않기",
-      "messages": [
-        {
-          "messageId": "e1",
-          "speaker": "ME",
-          "text": "어제 산책했어."
-        },
-        {
-          "messageId": "e2",
-          "speaker": "ME",
-          "text": "날씨가 좋더라."
-        },
-        {
-          "messageId": "e3",
-          "speaker": "ME",
-          "text": "공원에 꽃도 폈어."
-        }
-      ],
-      "expectedAssessments": [
-        {
-          "criterionId": "purpose.sharing.space",
-          "status": "NOT_APPLICABLE",
-          "evidenceMessageIds": [
-            "e1",
-            "e2",
-            "e3"
-          ],
-          "severity": null,
-          "resolved": false,
-          "reason": "상대가 말할 기회를 요청하거나 거부당한 표현이 없고 시간 정보도 없다."
-        }
-      ],
-      "note": "같은 화자의 연속 세그먼트 수만으로 문제를 만들지 않는다."
-    },
-    {
-      "id": "example.firm_refusal",
-      "scenario": "단호한 거절을 불친절로 평가하지 않기",
-      "messages": [
-        {
-          "messageId": "e1",
-          "speaker": "OTHER",
-          "text": "월급이 얼마예요?"
-        },
-        {
-          "messageId": "e2",
-          "speaker": "ME",
-          "text": "그건 말하고 싶지 않아요."
-        }
-      ],
-      "expectedAssessments": [
-        {
-          "criterionId": "purpose.boundary.clarity",
-          "status": "SATISFIED",
-          "evidenceMessageIds": [
-            "e1",
-            "e2"
-          ],
-          "severity": null,
-          "resolved": false,
-          "reason": "공개하지 않을 범위를 명확히 전달했다."
-        }
-      ],
-      "note": "사유 설명이나 사과를 요구하지 않는다."
-    },
-    {
-      "id": "example.missing_context",
-      "scenario": "잘린 대화에서 관련성을 추정하지 않기",
-      "messages": [
-        {
-          "messageId": "e1",
-          "speaker": "ME",
-          "text": "그건 내일 전달할게."
-        }
-      ],
-      "expectedAssessments": [
-        {
-          "criterionId": "purpose.sharing.relevance",
-          "status": "INSUFFICIENT_CONTEXT",
-          "evidenceMessageIds": [
-            "e1"
-          ],
-          "severity": null,
-          "resolved": false,
-          "reason": "지시 대상과 이전 요청이 제공되지 않아 맥락과의 연결을 판단할 수 없다."
-        }
-      ],
-      "note": "정보 부족을 위반이나 MAJOR로 기록하지 않는다. 전체 등급 판단에 필수인 정보인지 별도로 확인한다."
-    },
-    {
-      "id": "example.unknown",
-      "scenario": "목적 판단 불가를 사용자 문제로 채점하지 않기",
-      "messages": [
-        {
-          "messageId": "e1",
-          "speaker": "ME",
-          "text": "그게…"
-        }
-      ],
-      "expectedAssessments": [],
-      "note": "목적별 평가는 보류하며 UNKNOWN 자체를 MINOR나 MAJOR로 기록하지 않는다."
-    },
-    {
-      "id": "example.explicit_coercion",
-      "scenario": "목적 분류와 무관하게 명백한 강요를 확인하기",
-      "messages": [
-        {
-          "messageId": "e1",
-          "speaker": "OTHER",
-          "text": "전화번호는 알려주고 싶지 않아."
-        },
-        {
-          "messageId": "e2",
-          "speaker": "ME",
-          "text": "번호 안 알려주면 네 비밀을 퍼뜨릴 거야."
-        }
-      ],
-      "expectedAssessments": [
-        {
-          "criterionId": "common.respect",
-          "status": "VIOLATED",
-          "evidenceMessageIds": [
-            "e1",
-            "e2"
-          ],
-          "severity": "MAJOR",
-          "resolved": false,
-          "reason": "불이익을 내세워 개인정보 제공을 강요했다."
-        }
-      ],
-      "note": "같은 사건을 관계 기준이나 추가 질문마다 별개의 MAJOR로 중복 집계하지 않는다."
-    },
-    {
-      "id": "example.repaired_minor",
-      "scenario": "이후 답변으로 해소된 문제를 구분하기",
-      "messages": [
-        {
-          "messageId": "e1",
-          "speaker": "OTHER",
-          "text": "몇 시에 만날까?"
-        },
-        {
-          "messageId": "e2",
-          "speaker": "ME",
-          "text": "그나저나 어제 영화 봤어?"
-        },
-        {
-          "messageId": "e3",
-          "speaker": "OTHER",
-          "text": "시간부터 정하자."
-        },
-        {
-          "messageId": "e4",
-          "speaker": "ME",
-          "text": "영화 봤냐니까?"
-        },
-        {
-          "messageId": "e5",
-          "speaker": "OTHER",
-          "text": "약속 시간부터 알려줘."
-        },
-        {
-          "messageId": "e6",
-          "speaker": "ME",
-          "text": "미안, 세 시에 만나자."
-        }
-      ],
-      "expectedAssessments": [
-        {
-          "criterionId": "purpose.question.relevance",
-          "status": "VIOLATED",
-          "evidenceMessageIds": [
-            "e1",
-            "e2",
-            "e3",
-            "e4",
-            "e5",
-            "e6"
-          ],
-          "severity": "MINOR",
-          "resolved": true,
-          "reason": "시간을 정하자는 명시적 요청을 반복 회피했으나 이후 실제 시간을 제안하여 해소했다."
-        }
-      ],
-      "note": "해소된 MINOR를 미해결 문제처럼 최종 등급에 반영하지 않는다. 다른 문제가 없는지는 별도로 확인한다."
-    },
-    {
-      "id": "example.unobserved_followup",
-      "scenario": "입력 종료 뒤의 후속 대응을 추정하지 않고 위반 부재를 칭찬으로 만들지 않기",
-      "messages": [
-        {
-          "messageId": "e1",
-          "speaker": "OTHER",
-          "text": "요즘 회사가 너무 힘들어."
-        },
-        {
-          "messageId": "e2",
-          "speaker": "ME",
-          "text": "그냥 당장 퇴사해 버려."
-        },
-        {
-          "messageId": "e3",
-          "speaker": "OTHER",
-          "text": "생활비 때문에 수입이 끊기면 안 돼. 그렇게 간단한 문제가 아니야."
-        }
-      ],
-      "expectedAssessments": [
-        {
-          "criterionId": "purpose.advice.understanding",
-          "status": "VIOLATED",
-          "evidenceMessageIds": [
-            "e1",
-            "e2",
-            "e3"
-          ],
-          "severity": "MINOR",
-          "resolved": false,
-          "reason": "상황을 확인하지 않고 중대한 결정을 단순 해결책으로 제시했으며 후속 반응에서 실제 제약과의 불일치가 드러났다. 관찰 범위 안에 이 문제를 해소한 행동은 없다."
-        }
-      ],
-      "note": "모욕·위협이 없다는 사실만으로 장점을 만들지 않는다. e3 뒤 사용자 발화가 없으므로 대안을 제시하지 않았다는 별도 위반이나 반복 압박을 하지 않았다는 장점을 만들지 않는다. resolved=false는 관찰 범위에서 해소가 확인되지 않았다는 뜻이며 이후에도 해소하지 않았다는 단정이 아니다."
     }
   ]
 }

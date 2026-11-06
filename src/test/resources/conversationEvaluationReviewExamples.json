@@ -1,0 +1,297 @@
+{
+  "reviewExamples": [
+    {
+      "id": "example.simple_invitation",
+      "scenario": "가벼운 제안에 문제 해결용 기준을 적용하지 않기",
+      "messages": [
+        {
+          "messageId": "e1",
+          "speaker": "ME",
+          "text": "점심 같이 먹을래?"
+        },
+        {
+          "messageId": "e2",
+          "speaker": "OTHER",
+          "text": "좋아."
+        }
+      ],
+      "expectedAssessments": [
+        {
+          "criterionId": "purpose.advice.understanding",
+          "status": "NOT_APPLICABLE",
+          "evidenceMessageIds": [
+            "e1"
+          ],
+          "severity": null,
+          "resolved": false,
+          "reason": "공동 활동 제안이며 해결할 문제의 사전 파악은 필요하지 않다."
+        },
+        {
+          "criterionId": "purpose.advice.autonomy",
+          "status": "SATISFIED",
+          "evidenceMessageIds": [
+            "e1",
+            "e2"
+          ],
+          "severity": null,
+          "resolved": false,
+          "reason": "의향을 묻고 상대가 자발적으로 수락했다."
+        }
+      ],
+      "note": "사전 감정 확인이나 문제 파악이 없다는 이유로 지적하지 않는다."
+    },
+    {
+      "id": "example.explicit_advice_request",
+      "scenario": "명시적으로 조언을 원한 상대에게 바로 조언하기",
+      "messages": [
+        {
+          "messageId": "e1",
+          "speaker": "OTHER",
+          "text": "당장 수입이 끊기면 안 되는데 이직 고민이야. 뭘 먼저 하면 좋을까?"
+        },
+        {
+          "messageId": "e2",
+          "speaker": "ME",
+          "text": "퇴사 전에 다른 회사 채용 조건부터 비교해 보면 어때?"
+        }
+      ],
+      "expectedAssessments": [
+        {
+          "criterionId": "purpose.advice.understanding",
+          "status": "SATISFIED",
+          "evidenceMessageIds": [
+            "e1",
+            "e2"
+          ],
+          "severity": null,
+          "resolved": false,
+          "reason": "수입 유지라는 제약과 명시적 조언 요청을 고려했다."
+        }
+      ],
+      "note": "공감 문장을 먼저 말하지 않았다는 이유만으로 문제를 추가하지 않는다."
+    },
+    {
+      "id": "example.segmented_speech",
+      "scenario": "STT 분할을 끼어들기나 독점으로 오해하지 않기",
+      "messages": [
+        {
+          "messageId": "e1",
+          "speaker": "ME",
+          "text": "어제 산책했어."
+        },
+        {
+          "messageId": "e2",
+          "speaker": "ME",
+          "text": "날씨가 좋더라."
+        },
+        {
+          "messageId": "e3",
+          "speaker": "ME",
+          "text": "공원에 꽃도 폈어."
+        }
+      ],
+      "expectedAssessments": [
+        {
+          "criterionId": "purpose.sharing.space",
+          "status": "NOT_APPLICABLE",
+          "evidenceMessageIds": [
+            "e1",
+            "e2",
+            "e3"
+          ],
+          "severity": null,
+          "resolved": false,
+          "reason": "상대가 말할 기회를 요청하거나 거부당한 표현이 없고 시간 정보도 없다."
+        }
+      ],
+      "note": "같은 화자의 연속 세그먼트 수만으로 문제를 만들지 않는다."
+    },
+    {
+      "id": "example.firm_refusal",
+      "scenario": "단호한 거절을 불친절로 평가하지 않기",
+      "messages": [
+        {
+          "messageId": "e1",
+          "speaker": "OTHER",
+          "text": "월급이 얼마예요?"
+        },
+        {
+          "messageId": "e2",
+          "speaker": "ME",
+          "text": "그건 말하고 싶지 않아요."
+        }
+      ],
+      "expectedAssessments": [
+        {
+          "criterionId": "purpose.boundary.clarity",
+          "status": "SATISFIED",
+          "evidenceMessageIds": [
+            "e1",
+            "e2"
+          ],
+          "severity": null,
+          "resolved": false,
+          "reason": "공개하지 않을 범위를 명확히 전달했다."
+        }
+      ],
+      "note": "사유 설명이나 사과를 요구하지 않는다."
+    },
+    {
+      "id": "example.missing_context",
+      "scenario": "잘린 대화에서 관련성을 추정하지 않기",
+      "messages": [
+        {
+          "messageId": "e1",
+          "speaker": "ME",
+          "text": "그건 내일 전달할게."
+        }
+      ],
+      "expectedAssessments": [
+        {
+          "criterionId": "purpose.sharing.relevance",
+          "status": "INSUFFICIENT_CONTEXT",
+          "evidenceMessageIds": [
+            "e1"
+          ],
+          "severity": null,
+          "resolved": false,
+          "reason": "지시 대상과 이전 요청이 제공되지 않아 맥락과의 연결을 판단할 수 없다."
+        }
+      ],
+      "note": "정보 부족을 위반이나 MAJOR로 기록하지 않는다. 전체 등급 판단에 필수인 정보인지 별도로 확인한다."
+    },
+    {
+      "id": "example.unknown",
+      "scenario": "목적 판단 불가를 사용자 문제로 채점하지 않기",
+      "messages": [
+        {
+          "messageId": "e1",
+          "speaker": "ME",
+          "text": "그게…"
+        }
+      ],
+      "expectedAssessments": [],
+      "note": "목적별 평가는 보류하며 UNKNOWN 자체를 MINOR나 MAJOR로 기록하지 않는다."
+    },
+    {
+      "id": "example.explicit_coercion",
+      "scenario": "목적 분류와 무관하게 명백한 강요를 확인하기",
+      "messages": [
+        {
+          "messageId": "e1",
+          "speaker": "OTHER",
+          "text": "전화번호는 알려주고 싶지 않아."
+        },
+        {
+          "messageId": "e2",
+          "speaker": "ME",
+          "text": "번호 안 알려주면 네 비밀을 퍼뜨릴 거야."
+        }
+      ],
+      "expectedAssessments": [
+        {
+          "criterionId": "common.respect",
+          "status": "VIOLATED",
+          "evidenceMessageIds": [
+            "e1",
+            "e2"
+          ],
+          "severity": "MAJOR",
+          "resolved": false,
+          "reason": "불이익을 내세워 개인정보 제공을 강요했다."
+        }
+      ],
+      "note": "같은 사건을 관계 기준이나 추가 질문마다 별개의 MAJOR로 중복 집계하지 않는다."
+    },
+    {
+      "id": "example.repaired_minor",
+      "scenario": "이후 답변으로 해소된 문제를 구분하기",
+      "messages": [
+        {
+          "messageId": "e1",
+          "speaker": "OTHER",
+          "text": "몇 시에 만날까?"
+        },
+        {
+          "messageId": "e2",
+          "speaker": "ME",
+          "text": "그나저나 어제 영화 봤어?"
+        },
+        {
+          "messageId": "e3",
+          "speaker": "OTHER",
+          "text": "시간부터 정하자."
+        },
+        {
+          "messageId": "e4",
+          "speaker": "ME",
+          "text": "영화 봤냐니까?"
+        },
+        {
+          "messageId": "e5",
+          "speaker": "OTHER",
+          "text": "약속 시간부터 알려줘."
+        },
+        {
+          "messageId": "e6",
+          "speaker": "ME",
+          "text": "미안, 세 시에 만나자."
+        }
+      ],
+      "expectedAssessments": [
+        {
+          "criterionId": "purpose.question.relevance",
+          "status": "VIOLATED",
+          "evidenceMessageIds": [
+            "e1",
+            "e2",
+            "e3",
+            "e4",
+            "e5",
+            "e6"
+          ],
+          "severity": "MINOR",
+          "resolved": true,
+          "reason": "시간을 정하자는 명시적 요청을 반복 회피했으나 이후 실제 시간을 제안하여 해소했다."
+        }
+      ],
+      "note": "해소된 MINOR를 미해결 문제처럼 최종 등급에 반영하지 않는다. 다른 문제가 없는지는 별도로 확인한다."
+    },
+    {
+      "id": "example.unobserved_followup",
+      "scenario": "입력 종료 뒤의 후속 대응을 추정하지 않고 위반 부재를 칭찬으로 만들지 않기",
+      "messages": [
+        {
+          "messageId": "e1",
+          "speaker": "OTHER",
+          "text": "요즘 회사가 너무 힘들어."
+        },
+        {
+          "messageId": "e2",
+          "speaker": "ME",
+          "text": "그냥 당장 퇴사해 버려."
+        },
+        {
+          "messageId": "e3",
+          "speaker": "OTHER",
+          "text": "생활비 때문에 수입이 끊기면 안 돼. 그렇게 간단한 문제가 아니야."
+        }
+      ],
+      "expectedAssessments": [
+        {
+          "criterionId": "purpose.advice.understanding",
+          "status": "VIOLATED",
+          "evidenceMessageIds": [
+            "e1",
+            "e2",
+            "e3"
+          ],
+          "severity": "MINOR",
+          "resolved": false,
+          "reason": "상황을 확인하지 않고 중대한 결정을 단순 해결책으로 제시했으며 후속 반응에서 실제 제약과의 불일치가 드러났다. 관찰 범위 안에 이 문제를 해소한 행동은 없다."
+        }
+      ],
+      "note": "모욕·위협이 없다는 사실만으로 장점을 만들지 않는다. e3 뒤 사용자 발화가 없으므로 대안을 제시하지 않았다는 별도 위반이나 반복 압박을 하지 않았다는 장점을 만들지 않는다. resolved=false는 관찰 범위에서 해소가 확인되지 않았다는 뜻이며 이후에도 해소하지 않았다는 단정이 아니다."
+    }
+  ]
+}

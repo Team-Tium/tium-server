@@ -13,7 +13,7 @@ import java.util.List;
  * 고정 기준은 JSON에서 제공하고, 맥락별 추가 질문은 근거를 포함하여 평가 단계에서 구성한다.
  *
  * JSON 파일 → 이 객체로 역직렬화 → 사용자 발화의 목적·관계에 맞는 기준 선택 → 평가 프롬프트.
- * 현재 선택 로직은 ConversationAnalysisLiveApiTest.selectPreviewRubric()에 있는 실험 코드다.
+ * 현재 선택 로직은 ConversationEvaluationPreviewExperimentTest.selectPreviewRubric()에 있는 실험 코드다.
  * 아래의 '항상 전달/선택 전달/서버 기록용'은 이 실험 코드의 동작을 설명한다.
  *
  * <p>예시: 친구에게 "점심 같이 먹을래?"라고 말하고 상대가 "좋아."라고 답한 대화.

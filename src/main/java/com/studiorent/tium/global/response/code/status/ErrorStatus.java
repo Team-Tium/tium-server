@@ -89,7 +89,6 @@ public enum ErrorStatus implements BaseCode {
     FEEDBACK_ANALYSIS_INVALID_SOURCE_ID(HttpStatus.INTERNAL_SERVER_ERROR, "FEEDBACK5023", "분석할 저장 발화의 ID가 올바르지 않습니다."),
     FEEDBACK_ANALYSIS_INVALID_SOURCE_SPEAKER(HttpStatus.INTERNAL_SERVER_ERROR, "FEEDBACK5024", "분석할 저장 발화의 화자 정보가 없습니다."),
     FEEDBACK_ANALYSIS_INVALID_SOURCE_TIME(HttpStatus.INTERNAL_SERVER_ERROR, "FEEDBACK5025", "분석할 통화 발화의 시작 시각이 올바르지 않습니다."),
-    FEEDBACK_EVALUATION_INVALID_CRITERIA(HttpStatus.INTERNAL_SERVER_ERROR, "FEEDBACK5026", "피드백 평가 기준이 누락되었거나 대화 관계 및 형식과 일치하지 않습니다."),
 
     // Call STT Error
     CALL_STT_NOT_FOUND(HttpStatus.NOT_FOUND, "CALL_STT4041", "통화 STT 내역이 존재하지 않습니다."),

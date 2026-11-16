@@ -43,6 +43,11 @@ application-dev.yml
 CLAUDE.md
 
 ### Local conversation analysis reference files ###
+/outputs/
+node_modules/
+/docs/ai/
+/hs_err_pid*.log
+/replay_pid*.log
 /docs/ai/conversation-analysis.md
 /docs/ai/examples/
 /src/test/java/com/studiorent/tium/domain/feedback/service/analysis/ConversationAnalysisExamplesTest.java

@@ -10,7 +10,6 @@ import com.studiorent.tium.domain.call.entity.enums.CallSttJobStatus;
 import com.studiorent.tium.domain.call.repository.CallSttJobRepository;
 import com.studiorent.tium.domain.call.repository.CallSttSegmentRepository;
 import com.studiorent.tium.domain.call.service.CallAccessValidator;
-import com.studiorent.tium.domain.feedback.dto.ConversationTurn;
 import com.studiorent.tium.domain.feedback.repository.FeedbackRepository;
 import com.studiorent.tium.global.exception.BusinessException;
 import com.studiorent.tium.global.response.code.status.ErrorStatus;
@@ -80,16 +79,6 @@ public class CallSttQueryServiceImpl implements CallSttQueryService {
                 resolveMissingRecordingOwner(mySttSaved, otherSttSaved),
                 resolveFailedReason(myJob, otherJob),
                 buildStatusMessage(status, mySttSaved, otherSttSaved));
-    }
-
-    @Override
-    @Transactional(readOnly = true)
-    public List<ConversationTurn> findConversationForFeedback(Long memberId, Long callId) {
-        return findSegmentsForFeedback(memberId, callId).stream()
-                .map(segment -> new ConversationTurn(
-                        toSpeaker(memberId, segment.getSpeakerUserId()),
-                        segment.getText()))
-                .toList();
     }
 
     @Override

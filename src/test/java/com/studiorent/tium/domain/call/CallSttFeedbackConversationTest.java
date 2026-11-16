@@ -6,7 +6,6 @@ import com.studiorent.tium.domain.call.repository.CallSttJobRepository;
 import com.studiorent.tium.domain.call.repository.CallSttSegmentRepository;
 import com.studiorent.tium.domain.call.service.CallAccessValidator;
 import com.studiorent.tium.domain.call.service.query.CallSttQueryServiceImpl;
-import com.studiorent.tium.domain.feedback.dto.ConversationTurn;
 import com.studiorent.tium.domain.feedback.repository.FeedbackRepository;
 import com.studiorent.tium.global.exception.BusinessException;
 import com.studiorent.tium.global.response.code.status.ErrorStatus;
@@ -74,16 +73,6 @@ class CallSttFeedbackConversationTest {
     }
 
     @Test
-    void 기존_대화_조회_결과의_화자와_원문을_유지한다() {
-        when(repository.findByCallIdOrderByStartedAtMsAscIdAsc(10L))
-                .thenReturn(List.of(segment(1, 1, "안녕"), segment(2, 2, "반가워")));
-
-        assertThat(service.findConversationForFeedback(1L, 10L)).containsExactly(
-                new ConversationTurn("ME", "안녕"), new ConversationTurn("OTHER", "반가워"));
-        verify(accessValidator).validateParticipant(10L, 1L);
-    }
-
-    @Test
     void 양쪽_화자_합계_최근_200개만_시간순으로_반환한다() {
         // 최근 200개가 한 화자의 발화여도 전체 녹음에 양쪽 STT가 있으면 준비 조건은 만족한다.
         var segments = IntStream.rangeClosed(1, 250)
@@ -106,16 +95,4 @@ class CallSttFeedbackConversationTest {
         assertThat(service.findSegmentsForFeedback(1L, 10L)).containsExactlyElementsOf(segments);
     }
 
-    @Test
-    void 기존_피드백용_대화_조회에도_200개_제한이_적용된다() {
-        var segments = IntStream.rangeClosed(1, 201)
-                .mapToObj(id -> segment(id, id % 2 + 1, "발화 " + id)).toList();
-        when(repository.findByCallIdOrderByStartedAtMsAscIdAsc(10L)).thenReturn(segments);
-
-        var conversation = service.findConversationForFeedback(1L, 10L);
-
-        assertThat(conversation).hasSize(200);
-        assertThat(conversation.getFirst().message()).isEqualTo("발화 2");
-        assertThat(conversation.getLast().message()).isEqualTo("발화 201");
-    }
 }

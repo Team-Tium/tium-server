@@ -10,8 +10,9 @@ import com.studiorent.tium.global.response.code.status.ErrorStatus;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.model.ChatModel;
-import org.springframework.ai.chat.prompt.ChatOptions;
 import org.springframework.ai.chat.prompt.Prompt;
+import org.springframework.ai.openai.OpenAiChatModel.ResponseFormat;
+import org.springframework.ai.openai.OpenAiChatOptions;
 import org.springframework.stereotype.Service;
 import tools.jackson.core.JacksonException;
 
@@ -34,30 +35,37 @@ public class ConversationAnalysisService {
             ConversationAnalysisPromptBuilder promptBuilder,
             ConversationAnalysisValidator validator
     ) {
-        // 독립적인 빌더를 사용하여 피드백용 RAG Advisor나 대화 메모리를 붙이지 않는다.
+        // 분석 요청마다 독립적인 옵션을 사용한다.
         this.chatClient = ChatClient.builder(chatModel)
-                .defaultOptions(ChatOptions.builder().temperature(0.0)) // 답변 생성의 무작위성을 낮추는 설정
                 .build();
         this.promptBuilder = promptBuilder;
         this.validator = validator;
     }
-
 
     public ConversationAnalysisResult analyze(ConversationAnalysisInput input) {
         // 잘못된 입력은 외부 API를 호출하기 전에 거절한다.
         validator.validateInput(input);
         Prompt prompt = promptBuilder.build(input);
 
-        ConversationAnalysisResult result = requestAnalysis(prompt);
+        ConversationAnalysisResult result = requestAnalysis(prompt, input);
+        result = ConversationAnalysisOrder.restore(input.messages(), result);
+        // 필수 필드 누락을 보정으로 숨기지 않는다. 목적 근거만 해당 발화 전체에 연결한다.
+        if (result != null && validator.hasValidStructure(result)) {
+            result = ConversationAnalysisEvidence.bindOriginalUtterances(input.messages(), result);
+        }
 
         // JSON 변환에 성공했더라도 원문 근거가 잘못된 결과는 반환하지 않는다.
         validator.validateResult(input, result);
         return result;
     }
 
-    private ConversationAnalysisResult requestAnalysis(Prompt prompt) {
+    private ConversationAnalysisResult requestAnalysis(Prompt prompt, ConversationAnalysisInput input) {
         try {
-            return chatClient.prompt(prompt).call().entity(ConversationAnalysisResult.class);
+            return chatClient.prompt(prompt)
+                    .options(OpenAiChatOptions.builder()
+                            .responseFormat(ResponseFormat.builder()
+                                    .jsonSchema(ConversationAnalysisOutputSchema.forConversation(input.messages())).build()))
+                    .call().entity(ConversationAnalysisResult.class);
         } catch (OpenAIServiceException exception) {
             ErrorStatus errorStatus = ErrorStatus.fromAnalysisApiError(
                     exception.statusCode(), exception.code().orElse(null));
@@ -78,7 +86,7 @@ public class ConversationAnalysisService {
         }
     }
 
-    private boolean isTimeout(Throwable exception) {
+    private static boolean isTimeout(Throwable exception) {
         for (Throwable cause = exception; cause != null; cause = cause.getCause()) {
             if (cause instanceof InterruptedIOException || cause instanceof HttpTimeoutException) {
                 return true;
@@ -90,13 +98,9 @@ public class ConversationAnalysisService {
         return false;
     }
 
-
-
-    private BusinessException failure(ErrorStatus errorStatus) {
+    private static BusinessException failure(ErrorStatus errorStatus) {
         log.warn("Conversation analysis failed: code={}", errorStatus.getCode());
         return new BusinessException(errorStatus);
     }
-
-
 
 }

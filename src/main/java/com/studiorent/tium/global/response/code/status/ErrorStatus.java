@@ -65,7 +65,6 @@ public enum ErrorStatus implements BaseCode {
     FEEDBACK_ANALYSIS_TARGET_SPEAKER_MISSING(HttpStatus.BAD_REQUEST, "FEEDBACK4006", "분석 대상 사용자의 발화가 없습니다."),
     FEEDBACK_NOT_FOUND(HttpStatus.NOT_FOUND, "FEEDBACK404", "피드백이 존재하지 않습니다"),
     FEEDBACK_INVALID_RESPONSE(HttpStatus.INTERNAL_SERVER_ERROR, "FEEDBACK5002", "피드백 응답 형식이 올바르지 않습니다."),
-    FEEDBACK_CRITERIA_FILE_READ_FAILED(HttpStatus.INTERNAL_SERVER_ERROR,    "FEEDBACK5001","피드백 기준 파일을 읽지 못했습니다." ),
     FEEDBACK_TRANSCRIPTION_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "FEEDBACK5003", "녹음 파일을 텍스트로 변환하지 못했습니다."),
     FEEDBACK_ANALYSIS_INVALID_RESPONSE(HttpStatus.INTERNAL_SERVER_ERROR, "FEEDBACK5004", "대화 분석 응답이 원본 대화 또는 분석 형식과 일치하지 않습니다."),
     FEEDBACK_ANALYSIS_CONTEXT_EVIDENCE_ID_NOT_FOUND(HttpStatus.INTERNAL_SERVER_ERROR, "FEEDBACK5005", "대화 분석의 맥락 근거에 존재하지 않는 발화 ID가 포함되어 있습니다."),
@@ -89,6 +88,18 @@ public enum ErrorStatus implements BaseCode {
     FEEDBACK_ANALYSIS_INVALID_SOURCE_ID(HttpStatus.INTERNAL_SERVER_ERROR, "FEEDBACK5023", "분석할 저장 발화의 ID가 올바르지 않습니다."),
     FEEDBACK_ANALYSIS_INVALID_SOURCE_SPEAKER(HttpStatus.INTERNAL_SERVER_ERROR, "FEEDBACK5024", "분석할 저장 발화의 화자 정보가 없습니다."),
     FEEDBACK_ANALYSIS_INVALID_SOURCE_TIME(HttpStatus.INTERNAL_SERVER_ERROR, "FEEDBACK5025", "분석할 통화 발화의 시작 시각이 올바르지 않습니다."),
+
+    FEEDBACK_EVALUATION_INVALID_RESPONSE(HttpStatus.BAD_GATEWAY, "FEEDBACK5026", "대화 평가 응답의 형식, 원문 근거 또는 등급 일관성이 올바르지 않습니다."),
+    FEEDBACK_ANALYSIS_INVALID_REQUEST_REFERENCE(HttpStatus.BAD_GATEWAY, "FEEDBACK5027", "요청의 주체, 대상, 전달 방식 또는 근거 발화가 일관되지 않습니다."),
+    FEEDBACK_EVALUATION_API_AUTH_FAILED(HttpStatus.BAD_GATEWAY, "FEEDBACK5028", "대화 평가 API 인증에 실패했습니다."),
+    FEEDBACK_EVALUATION_API_PERMISSION_DENIED(HttpStatus.BAD_GATEWAY, "FEEDBACK5029", "대화 평가 API 접근 권한이 없습니다."),
+    FEEDBACK_EVALUATION_MODEL_UNAVAILABLE(HttpStatus.BAD_GATEWAY, "FEEDBACK5030", "설정된 대화 평가 모델을 사용할 수 없습니다."),
+    FEEDBACK_EVALUATION_API_RATE_LIMITED(HttpStatus.SERVICE_UNAVAILABLE, "FEEDBACK5031", "대화 평가 API 호출이 일시적으로 제한되었습니다."),
+    FEEDBACK_EVALUATION_API_QUOTA_EXCEEDED(HttpStatus.SERVICE_UNAVAILABLE, "FEEDBACK5032", "대화 평가 API 사용량 한도를 초과했습니다."),
+    FEEDBACK_EVALUATION_API_TIMEOUT(HttpStatus.GATEWAY_TIMEOUT, "FEEDBACK5033", "대화 평가 API 응답 시간이 초과되었습니다."),
+    FEEDBACK_EVALUATION_API_CONNECTION_FAILED(HttpStatus.BAD_GATEWAY, "FEEDBACK5034", "대화 평가 API에 연결하지 못했습니다."),
+    FEEDBACK_EVALUATION_API_FAILED(HttpStatus.BAD_GATEWAY, "FEEDBACK5035", "대화 평가 API 요청 처리에 실패했습니다."),
+    FEEDBACK_EVALUATION_RESPONSE_CONVERSION_FAILED(HttpStatus.BAD_GATEWAY, "FEEDBACK5036", "대화 평가 응답을 지정된 JSON 구조로 변환하지 못했습니다."),
 
     // Call STT Error
     CALL_STT_NOT_FOUND(HttpStatus.NOT_FOUND, "CALL_STT4041", "통화 STT 내역이 존재하지 않습니다."),
@@ -123,6 +134,19 @@ public enum ErrorStatus implements BaseCode {
                     : FEEDBACK_ANALYSIS_API_RATE_LIMITED;
             case 408, 504 -> FEEDBACK_ANALYSIS_API_TIMEOUT;
             default -> FEEDBACK_ANALYSIS_API_FAILED;
+        };
+    }
+
+    public static ErrorStatus fromEvaluationApiError(int statusCode, String apiErrorCode) {
+        return switch (statusCode) {
+            case 401 -> FEEDBACK_EVALUATION_API_AUTH_FAILED;
+            case 403 -> FEEDBACK_EVALUATION_API_PERMISSION_DENIED;
+            case 404 -> "model_not_found".equals(apiErrorCode)
+                    ? FEEDBACK_EVALUATION_MODEL_UNAVAILABLE : FEEDBACK_EVALUATION_API_FAILED;
+            case 429 -> "insufficient_quota".equals(apiErrorCode)
+                    ? FEEDBACK_EVALUATION_API_QUOTA_EXCEEDED : FEEDBACK_EVALUATION_API_RATE_LIMITED;
+            case 408, 504 -> FEEDBACK_EVALUATION_API_TIMEOUT;
+            default -> FEEDBACK_EVALUATION_API_FAILED;
         };
     }
 }

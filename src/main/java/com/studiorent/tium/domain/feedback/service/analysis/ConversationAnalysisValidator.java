@@ -4,6 +4,8 @@ import com.studiorent.tium.domain.feedback.dto.analysis.ConversationAnalysisInpu
 import com.studiorent.tium.domain.feedback.dto.analysis.ConversationAnalysisInput.Utterance;
 import com.studiorent.tium.domain.feedback.dto.analysis.ConversationAnalysisResult;
 import com.studiorent.tium.domain.feedback.dto.analysis.ConversationAnalysisResult.UtteranceAnalysis;
+import com.studiorent.tium.domain.feedback.dto.analysis.ConversationAnalysisResult.RequestAddressing;
+import com.studiorent.tium.domain.feedback.dto.analysis.ConversationAnalysisResult.RequestParty;
 import com.studiorent.tium.domain.feedback.dto.analysis.UtterancePurpose;
 import com.studiorent.tium.global.exception.BusinessException;
 import com.studiorent.tium.global.response.code.status.ErrorStatus;
@@ -62,9 +64,15 @@ public class ConversationAnalysisValidator {
             throw invalidResponse(ErrorStatus.FEEDBACK_ANALYSIS_UTTERANCE_COUNT_MISMATCH, null);
         }
 
+        Set<String> sourceIds = new HashSet<>();
+        input.messages().forEach(message -> sourceIds.add(message.messageId()));
         for (int index = 0; index < input.messages().size(); index++) {
-            validateUtterance(input.messages().get(index), result.utterances().get(index));
+            validateUtterance(input.messages().get(index), result.utterances().get(index), sourceIds);
         }
+    }
+
+    boolean hasValidStructure(ConversationAnalysisResult result) {
+        return result != null && validator.validate(result).isEmpty();
     }
 
 
@@ -83,7 +91,7 @@ public class ConversationAnalysisValidator {
         }
     }
 
-    private void validateUtterance(Utterance message, UtteranceAnalysis analysis) {
+    private void validateUtterance(Utterance message, UtteranceAnalysis analysis, Set<String> sourceIds) {
         // 개수와 순서를 대조하면 발화 누락, 중복, 존재하지 않는 ID도 거를 수 있다.
         if (!message.messageId().equals(analysis.messageId())) {
             throw invalidResponse(ErrorStatus.FEEDBACK_ANALYSIS_UTTERANCE_ORDER_MISMATCH, message.messageId());
@@ -105,7 +113,27 @@ public class ConversationAnalysisValidator {
         }
 
         validateQuotes(message, analysis.explicitEmotionQuotes(), ErrorStatus.FEEDBACK_ANALYSIS_EMOTION_QUOTE_NOT_FOUND);
-        validateQuotes(message, analysis.explicitRequestQuotes(), ErrorStatus.FEEDBACK_ANALYSIS_REQUEST_QUOTE_NOT_FOUND);
+        for (var request : analysis.requests()) {
+            if (!message.text().contains(request.evidenceQuote())) {
+                throw invalidResponse(ErrorStatus.FEEDBACK_ANALYSIS_REQUEST_QUOTE_NOT_FOUND, message.messageId());
+            }
+            Set<String> evidenceIds = new HashSet<>(request.contextEvidenceMessageIds());
+            boolean unknownParty = request.requester() == RequestParty.UNKNOWN || request.recipient() == RequestParty.UNKNOWN;
+            if (!sourceIds.containsAll(evidenceIds)
+                    || evidenceIds.size() != request.contextEvidenceMessageIds().size()
+                    || !evidenceIds.contains(message.messageId())
+                    || (unknownParty && request.addressing() != RequestAddressing.UNCERTAIN)
+                    || (request.addressing() == RequestAddressing.UNCERTAIN && analysis.uncertainties().isEmpty())) {
+                throw invalidResponse(ErrorStatus.FEEDBACK_ANALYSIS_INVALID_REQUEST_REFERENCE, message.messageId());
+            }
+            if (request.addressing() == RequestAddressing.DIRECT) {
+                RequestParty author = RequestParty.valueOf(message.speaker().name());
+                RequestParty listener = author == RequestParty.ME ? RequestParty.OTHER : RequestParty.ME;
+                if (request.requester() != author || request.recipient() != listener) {
+                    throw invalidResponse(ErrorStatus.FEEDBACK_ANALYSIS_INVALID_REQUEST_REFERENCE, message.messageId());
+                }
+            }
+        }
     }
 
     private void validateQuotes(Utterance message, List<String> quotes, ErrorStatus errorStatus) {

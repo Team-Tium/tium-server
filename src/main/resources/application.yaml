@@ -46,6 +46,9 @@ server:
   port: ${SERVER_PORT:8080}
 
 logging:
+  level:
+    # 변환 실패 시 모델 응답 원문을 출력하는 라이브러리 로그를 차단한다.
+    org.springframework.ai.converter.BeanOutputConverter: 'OFF'
   pattern:
     console: "%d{yyyy-MM-dd'T'HH:mm:ss.SSSXXX} %-5level [%thread] requestId=%X{requestId:-N/A} %logger{36} - %msg%n"
 

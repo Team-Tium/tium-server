@@ -10,6 +10,7 @@ import com.studiorent.tium.domain.feedback.service.analysis.ConversationFeedback
 import com.studiorent.tium.domain.feedback.service.query.ConversationAnalysisInputQueryService;
 import com.studiorent.tium.global.exception.BusinessException;
 import com.studiorent.tium.global.response.code.status.ErrorStatus;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
@@ -18,6 +19,7 @@ import java.time.LocalDateTime;
 import java.util.Optional;
 
 @Service
+@Slf4j
 public class FeedbackCommandServiceImpl implements FeedbackCommandService {
     private static final long CALL_FEEDBACK_PROCESSING_TIMEOUT_MINUTES = 15;
     private final FeedbackRepository feedbackRepository;
@@ -60,7 +62,15 @@ public class FeedbackCommandServiceImpl implements FeedbackCommandService {
             completeCallFeedback(myClaim, result);
             return result;
         } catch (RuntimeException failure) {
-            releaseCallFeedbackClaim(memberId, callId);
+            try {
+                releaseCallFeedbackClaim(myClaim);
+            } catch (RuntimeException cleanupFailure) {
+                if (cleanupFailure != failure) {
+                    failure.addSuppressed(cleanupFailure);
+                }
+                log.warn("Call feedback claim cleanup failed: exceptionType={}",
+                        cleanupFailure.getClass().getSimpleName());
+            }
             throw failure;
         }
     }
@@ -101,14 +111,18 @@ public class FeedbackCommandServiceImpl implements FeedbackCommandService {
             FeedbackResponseDTOv1 myFeedback
     ) {
         transactionTemplate.executeWithoutResult(status -> {
-            FeedbackConverter.complete(myClaim, myFeedback);
-            feedbackRepository.save(myClaim);
+            callAccessValidator.validateParticipantForUpdate(myClaim.getCallId(), myClaim.getMemberId());
+            Feedback currentClaim = feedbackRepository.findByIdAndMemberIdAndCallIdAndCompletedFalse(
+                            myClaim.getId(), myClaim.getMemberId(), myClaim.getCallId())
+                    .orElseThrow(() -> new BusinessException(ErrorStatus.DUPLICATE_REQUEST));
+            FeedbackConverter.complete(currentClaim, myFeedback);
         });
     }
 
-    private void releaseCallFeedbackClaim(Long memberId, Long callId) {
+    private void releaseCallFeedbackClaim(Feedback myClaim) {
         transactionTemplate.executeWithoutResult(status ->
-                feedbackRepository.deleteByMemberIdAndCallIdAndCompletedFalse(memberId, callId));
+                feedbackRepository.deleteByIdAndMemberIdAndCallIdAndCompletedFalse(
+                        myClaim.getId(), myClaim.getMemberId(), myClaim.getCallId()));
     }
 
 }

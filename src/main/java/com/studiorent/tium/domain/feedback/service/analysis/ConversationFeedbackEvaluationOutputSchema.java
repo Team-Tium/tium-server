@@ -13,6 +13,7 @@ import java.util.List;
 
 /** 평가 DTO 스키마에 서버가 확인한 화자별 ID 범위를 적용한다. 등급·판단 이유는 제한하지 않는다. */
 public final class ConversationFeedbackEvaluationOutputSchema {
+    private static final int MAX_QUOTE_BOUND_SCHEMA_LENGTH = 100_000;
     private static final ObjectMapper MAPPER = new ObjectMapper();
     private static final String BASE = new BeanOutputConverter<>(ConversationFeedbackEvaluation.class).getJsonSchema();
 
@@ -44,6 +45,7 @@ public final class ConversationFeedbackEvaluationOutputSchema {
         bind(schema, target, targetIds, otherIds, messages.stream().map(Utterance::messageId).toList());
         // 인용을 자유롭게 재작성하지 않고 ID와 원문 전체의 정확한 쌍에서 고른다.
         var evidence = (ObjectNode) schema.get("$defs").get("Evidence");
+        var idBoundEvidence = evidence.deepCopy();
         evidence.removeAll();
         var choices = evidence.putArray("anyOf");
         for (var message : messages) {
@@ -55,7 +57,14 @@ public final class ConversationFeedbackEvaluationOutputSchema {
             choice.putArray("required").add("messageId").add("quote");
             choice.put("additionalProperties", false);
         }
-        return MAPPER.writeValueAsString(schema);
+        String jsonSchema = MAPPER.writeValueAsString(schema);
+        // 원문 enum도 OpenAI의 스키마 문자열 한도에 포함된다. 큰 대화는 ID 범위만 제한하고
+        // 인용문 일치는 기존 서버 검증기에 맡긴다. 직렬화 길이로 여유 있게 상한을 적용한다.
+        if (jsonSchema.length() > MAX_QUOTE_BOUND_SCHEMA_LENGTH) {
+            ((ObjectNode) schema.get("$defs")).set("Evidence", idBoundEvidence);
+            return MAPPER.writeValueAsString(schema);
+        }
+        return jsonSchema;
     }
 
     private static void bind(JsonNode node, Speaker target, List<String> targetIds, List<String> otherIds, List<String> allIds) {

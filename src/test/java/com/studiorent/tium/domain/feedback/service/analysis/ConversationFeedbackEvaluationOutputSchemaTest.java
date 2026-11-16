@@ -53,7 +53,38 @@ class ConversationFeedbackEvaluationOutputSchemaTest {
                 assertThat(properties.get("quote").get("enum").get(0).asText()).isEqualTo(messages.get(i).text());
             }
             assertThat(schema.get("properties").get("targetSpeaker").get("enum").get(0).asText()).isEqualTo(target.name());
+            verifyStrict(schema);
         }
+    }
+
+    @Test
+    void 긴_대화는_원문_enum만_생략하고_화자와_ID_필수필드_제약은_유지한다() {
+        var before = ConversationFeedbackEvaluationOutputSchema.baseJsonSchema();
+        List<Utterance> largeMessages = new ArrayList<>();
+        for (int i = 0; i < 100; i++) {
+            largeMessages.add(new Utterance("chat:" + i, i % 2 == 0 ? Speaker.ME : Speaker.OTHER, "a".repeat(1_200)));
+        }
+        assertThat(largeMessages.stream().mapToInt(message -> message.text().length()).sum()).isEqualTo(120_000);
+
+        String jsonSchema = ConversationFeedbackEvaluationOutputSchema.forConversation(largeMessages, Speaker.ME);
+        var schema = mapper.readTree(jsonSchema);
+        var evidence = schema.get("$defs").get("Evidence");
+        assertThat(jsonSchema.length()).isLessThan(100_000);
+        assertThat(evidence.has("anyOf")).isFalse();
+        assertThat(evidence.get("properties").get("quote").get("type").asText()).isEqualTo("string");
+        assertThat(evidence.get("properties").get("quote").has("enum")).isFalse();
+        var evidenceIds = new HashSet<String>();
+        evidence.get("properties").get("messageId").get("enum").forEach(id -> evidenceIds.add(id.asText()));
+        assertThat(evidenceIds).containsExactlyInAnyOrderElementsOf(largeMessages.stream().map(Utterance::messageId).toList());
+        assertThat(propertiesNamed(schema, "targetMessageIds")).isNotEmpty().allSatisfy(node ->
+                assertThat(node.get("items").get("enum")).isEqualTo(mapper.valueToTree(largeMessages.stream()
+                        .filter(message -> message.speaker() == Speaker.ME).map(Utterance::messageId).toList())));
+        assertThat(propertiesNamed(schema, "respondingToMessageIds")).isNotEmpty().allSatisfy(node ->
+                assertThat(node.get("items").get("enum")).isEqualTo(mapper.valueToTree(largeMessages.stream()
+                        .filter(message -> message.speaker() == Speaker.OTHER).map(Utterance::messageId).toList())));
+        assertThat(schema.get("properties").get("targetSpeaker").get("enum").get(0).asText()).isEqualTo("ME");
+        verifyStrict(schema);
+        assertThat(ConversationFeedbackEvaluationOutputSchema.baseJsonSchema()).isEqualTo(before);
     }
 
     @Test

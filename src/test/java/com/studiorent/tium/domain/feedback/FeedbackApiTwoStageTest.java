@@ -23,6 +23,7 @@ import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.ai.chat.model.Generation;
 import org.springframework.ai.chat.prompt.Prompt;
 import org.springframework.ai.openai.OpenAiChatOptions;
+import org.springframework.dao.DataAccessResourceFailureException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.web.method.annotation.AuthenticationPrincipalArgumentResolver;
@@ -42,6 +43,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 /** 실제 컨트롤러→command→분석→평가→변환 경로. DB와 외부 모델은 대체한다. */
 class FeedbackApiTwoStageTest {
     private static final jakarta.validation.ValidatorFactory FACTORY = Validation.buildDefaultValidatorFactory();
+    private static final Long CLAIM_ID = 101L;
     private final ObjectMapper mapper = new ObjectMapper();
     private final ChatModel model = mock(ChatModel.class);
     private final FeedbackRepository repository = mock(FeedbackRepository.class);
@@ -55,6 +57,8 @@ class FeedbackApiTwoStageTest {
                     validator, new ConversationFeedbackEvaluationValidator(FACTORY.getValidator())));
     private final FeedbackCommandServiceImpl command = new FeedbackCommandServiceImpl(repository, inputs, pipeline, access, transactions);
     private final List<Boolean> savedCompletionStates = new ArrayList<>();
+    private Feedback savedCallClaim;
+    private Feedback managedCallClaim;
     private MockMvc mvc;
 
     @AfterAll static void close() { FACTORY.close(); }
@@ -63,8 +67,19 @@ class FeedbackApiTwoStageTest {
         when(model.getDefaultOptions()).thenReturn(OpenAiChatOptions.builder().build());
         when(transactions.getTransaction(any())).thenAnswer(invocation -> new SimpleTransactionStatus());
         when(repository.save(any(Feedback.class))).thenAnswer(invocation -> {
-            Feedback feedback = invocation.getArgument(0); savedCompletionStates.add(feedback.getCompleted()); return feedback;
+            Feedback feedback = invocation.getArgument(0);
+            savedCompletionStates.add(feedback.getCompleted());
+            if (feedback.getCallId() != null && Boolean.FALSE.equals(feedback.getCompleted())) {
+                savedCallClaim = Feedback.builder().id(CLAIM_ID).memberId(feedback.getMemberId())
+                        .callId(feedback.getCallId()).completed(false).build();
+                managedCallClaim = Feedback.builder().id(CLAIM_ID).memberId(feedback.getMemberId())
+                        .callId(feedback.getCallId()).completed(false).build();
+                return savedCallClaim;
+            }
+            return feedback;
         });
+        when(repository.findByIdAndMemberIdAndCallIdAndCompletedFalse(CLAIM_ID, 1L, 10L))
+                .thenAnswer(invocation -> Optional.ofNullable(managedCallClaim));
         when(repository.findTopByMemberIdAndCallIdAndCompletedTrueOrderByCreatedAtDesc(1L, 10L)).thenReturn(Optional.empty());
         var principal = mock(CustomUserDetails.class); when(principal.getMemberId()).thenReturn(1L);
         SecurityContextHolder.getContext().setAuthentication(new UsernamePasswordAuthenticationToken(principal, null, List.of()));
@@ -98,8 +113,16 @@ class FeedbackApiTwoStageTest {
                 .andExpect(jsonPath("$.result.overallQuality").value("GOOD"))
                 .andExpect(jsonPath("$.result.overallFeedback").value(org.hamcrest.Matchers.containsString("최근 최대 200개 발화")));
         verify(model, times(2)).call(any(Prompt.class));
-        assertThat(savedCompletionStates).containsExactly(false, true);
-        verify(repository, never()).deleteByMemberIdAndCallIdAndCompletedFalse(anyLong(), anyLong());
+        assertThat(savedCompletionStates).containsExactly(false);
+        assertThat(savedCallClaim.getCompleted()).isFalse();
+        assertThat(managedCallClaim.getCompleted()).isTrue();
+        assertThat(managedCallClaim.getOverallFeedback()).contains("최근 최대 200개 발화");
+        var order = inOrder(access, repository);
+        order.verify(access).validateParticipantForUpdate(10L, 1L);
+        order.verify(repository).save(any(Feedback.class));
+        order.verify(access).validateParticipantForUpdate(10L, 1L);
+        order.verify(repository).findByIdAndMemberIdAndCallIdAndCompletedFalse(CLAIM_ID, 1L, 10L);
+        verify(repository, never()).deleteByIdAndMemberIdAndCallIdAndCompletedFalse(anyLong(), anyLong(), anyLong());
     }
     @Test void 기존_완료_통화_피드백은_재호출없이_반환한다() {
         var feedback = Feedback.builder().memberId(1L).callId(10L).completed(true)
@@ -116,7 +139,7 @@ class FeedbackApiTwoStageTest {
         assertThatThrownBy(() -> command.createCallFeedback(1L, 10L)).isInstanceOfSatisfying(BusinessException.class,
                 e -> assertThat(e.getBaseCode()).isEqualTo(ErrorStatus.DUPLICATE_REQUEST));
         verifyNoInteractions(model, inputs);
-        verify(repository, never()).deleteByMemberIdAndCallIdAndCompletedFalse(anyLong(), anyLong());
+        verify(repository, never()).deleteByIdAndMemberIdAndCallIdAndCompletedFalse(anyLong(), anyLong(), anyLong());
     }
     @Test void 입력_권한_실패면_분석과_저장을_진행하지_않는다() {
         when(inputs.findChatInput(1L, 10L, RelationShip.UNCONFIRMED)).thenThrow(new BusinessException(ErrorStatus.CHAT_NOT_ROOM_MEMBER));
@@ -133,7 +156,7 @@ class FeedbackApiTwoStageTest {
         successfulModel(true); when(model.call(any(Prompt.class))).thenReturn(response(null));
         assertThatThrownBy(() -> command.createCallFeedback(1L, 10L)).isInstanceOf(BusinessException.class);
         verify(model).call(any(Prompt.class)); assertThat(savedCompletionStates).containsExactly(false);
-        verify(repository).deleteByMemberIdAndCallIdAndCompletedFalse(1L, 10L);
+        verify(repository).deleteByIdAndMemberIdAndCallIdAndCompletedFalse(CLAIM_ID, 1L, 10L);
     }
     @Test void 통화의_2차_검증_실패도_완료_저장없이_선점을_해제한다() {
         successfulModel(true);
@@ -141,7 +164,37 @@ class FeedbackApiTwoStageTest {
         assertThatThrownBy(() -> command.createCallFeedback(1L, 10L)).isInstanceOfSatisfying(BusinessException.class,
                 e -> assertThat(e.getBaseCode()).isEqualTo(ErrorStatus.FEEDBACK_EVALUATION_INVALID_RESPONSE));
         verify(model, times(2)).call(any(Prompt.class)); assertThat(savedCompletionStates).containsExactly(false);
-        verify(repository).deleteByMemberIdAndCallIdAndCompletedFalse(1L, 10L);
+        verify(repository).deleteByIdAndMemberIdAndCallIdAndCompletedFalse(CLAIM_ID, 1L, 10L);
+    }
+    @Test void 만료로_교체된_선점에는_완료_결과를_저장하지_않는다() {
+        successfulModel(true);
+        when(repository.findByIdAndMemberIdAndCallIdAndCompletedFalse(CLAIM_ID, 1L, 10L))
+                .thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> command.createCallFeedback(1L, 10L))
+                .isInstanceOfSatisfying(BusinessException.class,
+                        e -> assertThat(e.getBaseCode()).isEqualTo(ErrorStatus.DUPLICATE_REQUEST));
+
+        assertThat(savedCompletionStates).containsExactly(false);
+        assertThat(savedCallClaim.getCompleted()).isFalse();
+        assertThat(managedCallClaim.getCompleted()).isFalse();
+        verify(repository).deleteByIdAndMemberIdAndCallIdAndCompletedFalse(CLAIM_ID, 1L, 10L);
+    }
+    @Test void 선점_해제도_실패하면_최초_오류와_추가_실패를_함께_보존한다() {
+        successfulModel(true);
+        var failure = new BusinessException(ErrorStatus.FEEDBACK_ANALYSIS_API_FAILED);
+        var cleanupFailure = new DataAccessResourceFailureException("cleanup unavailable");
+        when(model.call(any(Prompt.class))).thenThrow(failure);
+        doThrow(cleanupFailure).when(repository)
+                .deleteByIdAndMemberIdAndCallIdAndCompletedFalse(CLAIM_ID, 1L, 10L);
+
+        assertThatThrownBy(() -> command.createCallFeedback(1L, 10L))
+                .isSameAs(failure)
+                .satisfies(error -> assertThat(error.getSuppressed()).containsExactly(cleanupFailure));
+
+        verify(model).call(any(Prompt.class));
+        assertThat(savedCompletionStates).containsExactly(false);
+        assertThat(managedCallClaim.getCompleted()).isFalse();
     }
     @Test void 채팅의_2차_실패는_완료_피드백을_저장하지_않는다() {
         successfulModel(false);

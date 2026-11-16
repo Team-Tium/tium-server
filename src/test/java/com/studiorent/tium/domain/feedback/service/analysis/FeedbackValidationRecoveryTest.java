@@ -2,10 +2,16 @@ package com.studiorent.tium.domain.feedback.service.analysis;
 
 import com.studiorent.tium.domain.feedback.FeedbackTestData;
 import com.studiorent.tium.domain.feedback.dto.analysis.ConversationAnalysisInput;
+import com.studiorent.tium.domain.feedback.dto.analysis.ConversationAnalysisInput.Speaker;
+import com.studiorent.tium.domain.feedback.dto.analysis.ConversationAnalysisInput.Utterance;
 import com.studiorent.tium.domain.feedback.dto.analysis.ConversationAnalysisResult;
 import com.studiorent.tium.domain.feedback.dto.analysis.ConversationFeedbackEvaluation;
+import com.studiorent.tium.domain.feedback.dto.analysis.ConversationFeedbackEvaluation.Finding;
+import com.studiorent.tium.domain.feedback.dto.analysis.ConversationFeedbackEvaluation.Impact;
+import com.studiorent.tium.domain.feedback.dto.analysis.ConversationFeedbackEvaluation.ResponseAssessment;
 import com.studiorent.tium.domain.feedback.dto.analysis.ConversationFeedbackEvaluation.Strength;
 import com.studiorent.tium.domain.feedback.dto.analysis.ConversationFeedbackEvaluation.Evidence;
+import com.studiorent.tium.domain.feedback.entity.enums.OverallQuality;
 import com.studiorent.tium.global.exception.BusinessException;
 import jakarta.validation.Validation;
 import org.junit.jupiter.api.AfterAll;
@@ -42,6 +48,35 @@ class FeedbackValidationRecoveryTest {
                 false, "", base.contextUnderstanding(), List.of(), base.feedback(), base.strengths(), List.of(), List.of());
         assertThatThrownBy(() -> evaluationValidator.validateAndFilterStrengths(input.messages(), input.targetSpeaker(), invalid))
                 .isInstanceOf(BusinessException.class);
+    }
+
+    @Test void 원문은_유효하지만_HELPFUL과_연결되지_않은_장점만_제외하고_평가는_보존한다() {
+        var source = List.of(
+                new Utterance("m1", Speaker.OTHER, "자료는 내일 오전에 보낼 수 있어."),
+                new Utterance("m2", Speaker.ME, "좋아, 내일 오전에 보내줘."),
+                new Utterance("m3", Speaker.ME, "이 부분은 나중에 더 이야기하자."));
+        var helpfulEvidence = new Evidence("m2", "내일 오전에 보내줘.");
+        var uncertainEvidence = new Evidence("m3", "나중에 더 이야기하자.");
+        var linked = new Strength("가능한 일정에 맞춰 요청했어요.", List.of(helpfulEvidence));
+        var unlinked = new Strength("추가 대화를 제안했어요.", List.of(uncertainEvidence));
+        var raw = new ConversationFeedbackEvaluation(Speaker.ME, OverallQuality.GOOD,
+                "상대가 가능한 일정에 맞춰 응답했어요.", false, "", "자료 전달 일정을 조율한다.",
+                List.of(
+                        new ResponseAssessment(List.of("m2"), List.of("m1"), "일정 조율", Finding.HELPFUL,
+                                Impact.NONE, false, List.of(helpfulEvidence), "상대가 제시한 시간을 반영했어요."),
+                        new ResponseAssessment(List.of("m3"), List.of(), "추가 대화 제안", Finding.UNCERTAIN,
+                                Impact.NONE, false, List.of(uncertainEvidence), "추가로 논의할 내용은 드러나지 않았어요.")),
+                "상대가 가능한 시간에 맞춰 자료 전달을 요청했어요.", List.of(linked, unlinked), List.of(),
+                List.of("추가 대화의 주제는 명시되지 않았어요."));
+
+        assertThatThrownBy(() -> evaluationValidator.validateResult(source, Speaker.ME, raw))
+                .isInstanceOf(BusinessException.class);
+
+        var recovered = evaluationValidator.validateAndFilterStrengths(source, Speaker.ME, raw);
+
+        assertThat(recovered).isEqualTo(withStrengths(raw, List.of(linked)));
+        assertThat(recovered.responseAssessments()).isSameAs(raw.responseAssessments());
+        assertThat(raw.strengths()).containsExactly(linked, unlinked);
     }
 
     @Test

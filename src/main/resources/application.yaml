@@ -31,7 +31,7 @@ spring:
     openai:
       api-key: ${OPENAI_API_KEY}
       chat:
-        model: ${OPENAI_CHAT_MODEL:gpt-5.6-luna}
+        model: ${OPENAI_CHAT_MODEL:gpt-5.6-sol}
         max-retries: 0
       audio:
         transcription:

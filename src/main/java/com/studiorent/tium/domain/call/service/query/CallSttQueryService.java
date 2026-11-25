@@ -16,6 +16,6 @@ public interface CallSttQueryService {
 
     CallSttResponseDTO.Status getFeedbackStatus(Long memberId, Call call);
 
-    // 권한 및 양쪽 STT 준비 여부를 확인한 뒤 저장 ID를 포함하는 원본 세그먼트를 반환한다.
+    // 권한, 양쪽 STT 저장 및 최근 200개 안의 요청자 발화를 확인한 뒤 시간순 원본을 반환한다.
     List<CallSttSegment> findSegmentsForFeedback(Long memberId, Long callId);
 }

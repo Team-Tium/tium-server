@@ -1,0 +1,141 @@
+{
+  "$schema" : "https://json-schema.org/draft/2020-12/schema",
+  "$defs" : {
+    "Evidence" : {
+      "type" : "object",
+      "properties" : {
+        "messageId" : {
+          "type" : "string"
+        },
+        "quote" : {
+          "type" : "string"
+        }
+      },
+      "required" : [ "messageId", "quote" ],
+      "additionalProperties" : false
+    }
+  },
+  "type" : "object",
+  "properties" : {
+    "contextUnderstanding" : {
+      "type" : "string"
+    },
+    "essentialContextMissing" : {
+      "type" : "boolean"
+    },
+    "feedback" : {
+      "type" : "string"
+    },
+    "gradeReason" : {
+      "type" : "string"
+    },
+    "optionalAlternatives" : {
+      "type" : "array",
+      "items" : {
+        "type" : "object",
+        "properties" : {
+          "intendedMeaning" : {
+            "type" : "string"
+          },
+          "reason" : {
+            "type" : "string"
+          },
+          "suggestion" : {
+            "type" : "string"
+          },
+          "targetMessageIds" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          }
+        },
+        "required" : [ "intendedMeaning", "reason", "suggestion", "targetMessageIds" ],
+        "additionalProperties" : false
+      }
+    },
+    "overallQuality" : {
+      "type" : "string",
+      "enum" : [ "GOOD", "BAD", "AMBIGUOUS" ]
+    },
+    "responseAssessments" : {
+      "type" : "array",
+      "items" : {
+        "type" : "object",
+        "properties" : {
+          "evidence" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/$defs/Evidence"
+            }
+          },
+          "finding" : {
+            "type" : "string",
+            "enum" : [ "HELPFUL", "NEEDS_IMPROVEMENT", "UNCERTAIN" ]
+          },
+          "function" : {
+            "type" : "string"
+          },
+          "impact" : {
+            "type" : "string",
+            "enum" : [ "NONE", "MINOR", "MAJOR" ]
+          },
+          "reason" : {
+            "type" : "string"
+          },
+          "resolved" : {
+            "type" : "boolean"
+          },
+          "respondingToMessageIds" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "targetMessageIds" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          }
+        },
+        "required" : [ "evidence", "finding", "function", "impact", "reason", "resolved", "respondingToMessageIds", "targetMessageIds" ],
+        "additionalProperties" : false
+      }
+    },
+    "strengths" : {
+      "type" : "array",
+      "items" : {
+        "type" : "object",
+        "properties" : {
+          "evidence" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/$defs/Evidence"
+            }
+          },
+          "text" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "evidence", "text" ],
+        "additionalProperties" : false
+      }
+    },
+    "targetSpeaker" : {
+      "type" : "string",
+      "enum" : [ "ME", "OTHER" ]
+    },
+    "uncertainties" : {
+      "type" : "array",
+      "items" : {
+        "type" : "string"
+      }
+    },
+    "uncertaintyReason" : {
+      "type" : "string"
+    }
+  },
+  "required" : [ "contextUnderstanding", "essentialContextMissing", "feedback", "gradeReason", "optionalAlternatives", "overallQuality", "responseAssessments", "strengths", "targetSpeaker", "uncertainties", "uncertaintyReason" ],
+  "additionalProperties" : false
+}

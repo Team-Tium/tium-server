@@ -10,7 +10,6 @@ import com.studiorent.tium.domain.call.entity.enums.CallSttJobStatus;
 import com.studiorent.tium.domain.call.repository.CallSttJobRepository;
 import com.studiorent.tium.domain.call.repository.CallSttSegmentRepository;
 import com.studiorent.tium.domain.call.service.CallAccessValidator;
-import com.studiorent.tium.domain.feedback.dto.ConversationTurn;
 import com.studiorent.tium.domain.feedback.repository.FeedbackRepository;
 import com.studiorent.tium.global.exception.BusinessException;
 import com.studiorent.tium.global.response.code.status.ErrorStatus;
@@ -84,7 +83,7 @@ public class CallSttQueryServiceImpl implements CallSttQueryService {
 
     @Override
     @Transactional(readOnly = true)
-    public List<ConversationTurn> findConversationForFeedback(Long memberId, Long callId) {
+    public List<CallSttSegment> findSegmentsForFeedback(Long memberId, Long callId) {
         callAccessValidator.validateParticipant(callId, memberId);
 
         List<CallSttSegment> segments = findSegments(callId);
@@ -97,11 +96,9 @@ public class CallSttQueryServiceImpl implements CallSttQueryService {
             throw new BusinessException(ErrorStatus.CALL_STT_NOT_READY);
         }
 
-        return segments.stream()
-                .map(segment -> new ConversationTurn(
-                        toSpeaker(memberId, segment.getSpeakerUserId()),
-                        segment.getText()))
-                .toList();
+        // 양쪽 STT 준비 여부는 전체에서 확인하고, 평가에는 시간순 목록의 마지막 200개만 사용한다.
+        int fromIndex = Math.max(0, segments.size() - FEEDBACK_UTTERANCE_LIMIT);
+        return List.copyOf(segments.subList(fromIndex, segments.size()));
     }
 
     private List<CallSttSegment> findSegments(Long callId) {

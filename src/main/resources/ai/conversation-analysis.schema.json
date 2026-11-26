@@ -1,0 +1,109 @@
+{
+  "$schema" : "https://json-schema.org/draft/2020-12/schema",
+  "$defs" : {
+    "RequestParty" : {
+      "type" : "string",
+      "enum" : [ "ME", "OTHER", "THIRD_PARTY", "UNKNOWN" ]
+    }
+  },
+  "type" : "object",
+  "properties" : {
+    "contextEvidenceMessageIds" : {
+      "type" : "array",
+      "items" : {
+        "type" : "string"
+      }
+    },
+    "contextSummary" : {
+      "type" : "string"
+    },
+    "uncertainties" : {
+      "type" : "array",
+      "items" : {
+        "type" : "string"
+      }
+    },
+    "utterances" : {
+      "type" : "array",
+      "items" : {
+        "type" : "object",
+        "properties" : {
+          "explicitEmotionQuotes" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "messageId" : {
+            "type" : "string"
+          },
+          "purposeCandidates" : {
+            "type" : "array",
+            "items" : {
+              "type" : "object",
+              "properties" : {
+                "evidenceQuote" : {
+                  "type" : "string"
+                },
+                "purpose" : {
+                  "type" : "string",
+                  "enum" : [ "QUESTION", "INFORMATION_SHARING", "EMOTION_EXPRESSION", "ACKNOWLEDGEMENT", "OPINION", "ADVICE_OR_SUGGESTION", "REFUSAL_OR_BOUNDARY", "OTHER", "UNKNOWN" ]
+                },
+                "reason" : {
+                  "type" : "string"
+                }
+              },
+              "required" : [ "evidenceQuote", "purpose", "reason" ],
+              "additionalProperties" : false
+            }
+          },
+          "requests" : {
+            "type" : "array",
+            "items" : {
+              "type" : "object",
+              "properties" : {
+                "addressing" : {
+                  "type" : "string",
+                  "enum" : [ "DIRECT", "REPORTED_OR_THIRD_PARTY", "UNCERTAIN" ]
+                },
+                "contextEvidenceMessageIds" : {
+                  "type" : "array",
+                  "items" : {
+                    "type" : "string"
+                  }
+                },
+                "evidenceQuote" : {
+                  "type" : "string"
+                },
+                "reason" : {
+                  "type" : "string"
+                },
+                "recipient" : {
+                  "$ref" : "#/$defs/RequestParty"
+                },
+                "requestedAction" : {
+                  "type" : "string"
+                },
+                "requester" : {
+                  "$ref" : "#/$defs/RequestParty"
+                }
+              },
+              "required" : [ "addressing", "contextEvidenceMessageIds", "evidenceQuote", "reason", "recipient", "requestedAction", "requester" ],
+              "additionalProperties" : false
+            }
+          },
+          "uncertainties" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          }
+        },
+        "required" : [ "explicitEmotionQuotes", "messageId", "purposeCandidates", "requests", "uncertainties" ],
+        "additionalProperties" : false
+      }
+    }
+  },
+  "required" : [ "contextEvidenceMessageIds", "contextSummary", "uncertainties", "utterances" ],
+  "additionalProperties" : false
+}

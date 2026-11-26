@@ -22,8 +22,25 @@ public record ConversationAnalysisResult( // 대화 분석 결과
             @NotEmpty List<@NotNull @Valid PurposeCandidate> purposeCandidates, //그 발화의 목적 후보
             // 원문에 명시된 표현을 그대로 인용한다. 확인되지 않으면 빈 배열이다.
             @NotNull List<@NotBlank String> explicitEmotionQuotes, // 감정을 직접 표현한 원문
-            @NotNull List<@NotBlank String> explicitRequestQuotes, // 무언가를 요청한 원문
+            @NotNull List<@NotNull @Valid RequestAnalysis> requests, // 요청 표현과 실제 요청 주체·대상
             @NotNull List<@NotBlank String> uncertainties  // 현재 대화만으로 확정할 수 없는 부분 ex) 힘들다 같은 말을 곧바로 공감을 요청했다로 단정않기 위해서 쓴것임
+    ) {
+    }
+
+    /** ME/OTHER는 현재 대화의 참여자다. 제삼자나 불명확한 대상을 이 둘에 합치지 않는다. */
+    public enum RequestParty { ME, OTHER, THIRD_PARTY, UNKNOWN }
+
+    /** 현재 발화의 요청 방식이다. 과거에 직접 했던 요청의 보고도 REPORTED_OR_THIRD_PARTY다. */
+    public enum RequestAddressing { DIRECT, REPORTED_OR_THIRD_PARTY, UNCERTAIN }
+
+    public record RequestAnalysis(
+            @NotBlank String evidenceQuote,
+            @NotNull RequestParty requester,
+            @NotNull RequestParty recipient,
+            @NotNull RequestAddressing addressing,
+            @NotBlank String requestedAction,
+            @NotEmpty List<@NotBlank String> contextEvidenceMessageIds,
+            @NotBlank String reason
     ) {
     }
 

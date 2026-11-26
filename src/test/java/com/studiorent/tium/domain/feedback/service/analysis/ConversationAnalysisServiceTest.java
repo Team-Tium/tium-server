@@ -25,7 +25,8 @@ import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.ai.chat.model.Generation;
 import org.springframework.ai.chat.prompt.Prompt;
-import org.springframework.ai.chat.prompt.ChatOptions;
+import org.springframework.ai.openai.OpenAiChatOptions;
+import org.springframework.ai.openai.OpenAiChatModel.ResponseFormat;
 import tools.jackson.databind.ObjectMapper;
 
 import java.util.List;
@@ -59,7 +60,7 @@ class ConversationAnalysisServiceTest {
 
     @BeforeEach
     void configureModelOptions() {
-        when(chatModel.getDefaultOptions()).thenReturn(ChatOptions.builder().build());
+        when(chatModel.getDefaultOptions()).thenReturn(OpenAiChatOptions.builder().build());
     }
 
     private ConversationAnalysisInput input() {
@@ -80,7 +81,7 @@ class ConversationAnalysisServiceTest {
                       "reason": "힘든 감정을 직접 표현한다."
                     }],
                     "explicitEmotionQuotes": ["힘들어요."],
-                    "explicitRequestQuotes": [],
+                    "requests": [],
                     "uncertainties": ["조언을 원하는지는 명시되지 않았다."]
                   }],
                   "uncertainties": []
@@ -99,7 +100,7 @@ class ConversationAnalysisServiceTest {
         assertThat(result.utterances()).hasSize(1);
         assertThat(result.utterances().getFirst().messageId()).isEqualTo("m1");
         assertThat(result.utterances().getFirst().purposeCandidates().getFirst().evidenceQuote())
-                .isEqualTo("힘들어요.");
+                .isEqualTo(input().messages().getFirst().text());
 
         var captor = ArgumentCaptor.forClass(Prompt.class);
         verify(chatModel).call(captor.capture());
@@ -109,7 +110,11 @@ class ConversationAnalysisServiceTest {
         assertThat(prompt.getInstructions().getFirst()).isInstanceOf(SystemMessage.class);
         assertThat(prompt.getInstructions().getLast()).isInstanceOf(UserMessage.class);
         assertThat(prompt.getInstructions().getLast().getText()).contains("요즘 회사 때문에 힘들어요.");
-        assertThat(prompt.getOptions().getTemperature()).isEqualTo(0.0);
+        assertThat(prompt.getOptions().getTemperature()).isNull();
+        assertThat(prompt.getOptions()).isInstanceOf(OpenAiChatOptions.class);
+        var format = ((OpenAiChatOptions) prompt.getOptions()).getResponseFormat();
+        assertThat(format.getType()).isEqualTo(ResponseFormat.Type.JSON_SCHEMA);
+        assertThat(format.getJsonSchema()).isEqualTo(ConversationAnalysisOutputSchema.forConversation(input().messages()));
     }
 
     @Test
@@ -119,19 +124,20 @@ class ConversationAnalysisServiceTest {
 
         assertThatThrownBy(() -> service.analyze(null))
                 .isInstanceOfSatisfying(BusinessException.class,
-                        exception -> assertThat(exception.getBaseCode()).isEqualTo(ErrorStatus.BAD_REQUEST));
+                        exception -> assertThat(exception.getBaseCode()).isEqualTo(ErrorStatus.FEEDBACK_ANALYSIS_INVALID_INPUT));
 
         verifyNoInteractions(chatModel);
     }
 
     @Test
-    void 원문에_없는_인용문을_포함한_분석은_반환하지_않는다() {
+    void 목적의_근거는_모델이_다시쓴_문장_대신_해당_ID의_원문_전체로_연결한다() {
         modelResponds("너무 슬퍼요.");
 
-        assertThatThrownBy(() -> service.analyze(input()))
-                .isInstanceOfSatisfying(BusinessException.class,
-                        exception -> assertThat(exception.getBaseCode())
-                                .isEqualTo(ErrorStatus.FEEDBACK_ANALYSIS_PURPOSE_QUOTE_NOT_FOUND));
+        var result = service.analyze(input());
+        assertThat(result.utterances().getFirst().purposeCandidates().getFirst().evidenceQuote())
+                .isEqualTo(input().messages().getFirst().text());
+        assertThat(result.utterances().getFirst().explicitEmotionQuotes()).containsExactly("힘들어요.");
+        verify(chatModel).call(any(Prompt.class));
     }
 
     private void assertMappedError(ErrorStatus expected) {
@@ -197,6 +203,20 @@ class ConversationAnalysisServiceTest {
         when(chatModel.call(any(Prompt.class))).thenReturn(
                 new ChatResponse(List.of(new Generation(new AssistantMessage("null")))));
 
+        assertMappedError(ErrorStatus.FEEDBACK_ANALYSIS_INVALID_RESPONSE);
+    }
+
+    @Test
+    void 스키마_요청을_보냈어도_필수_필드가_누락된_응답은_반환하지_않는다() {
+        String response = """
+                {"contextSummary":"회사 때문에 힘들다는 감정 표현",
+                 "contextEvidenceMessageIds":["m1"],"uncertainties":[],
+                 "utterances":[{"messageId":"m1","purposeCandidates":[{
+                   "purpose":"EMOTION_EXPRESSION","evidenceQuote":"힘들어요.","reason":"감정 표현"}],
+                   "explicitEmotionQuotes":["힘들어요."],"requests":[]}]}
+                """;
+        when(chatModel.call(any(Prompt.class))).thenReturn(
+                new ChatResponse(List.of(new Generation(new AssistantMessage(response)))));
         assertMappedError(ErrorStatus.FEEDBACK_ANALYSIS_INVALID_RESPONSE);
     }
 

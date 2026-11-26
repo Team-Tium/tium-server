@@ -31,8 +31,10 @@ spring:
     openai:
       api-key: ${OPENAI_API_KEY}
       chat:
-        model: ${OPENAI_CHAT_MODEL:gpt-5.6-luna}
-        max-retries: 0
+        model: ${OPENAI_CHAT_MODEL:gpt-5.6-sol}
+        # 시간 예산을 공유하는 HTTP 전송 계층에서 일시적 오류만 한 번 재시도한다.
+        max-retries: 1
+        timeout: 60s
       audio:
         transcription:
           model: whisper-1
@@ -42,6 +44,12 @@ spring:
           timestamp-granularities:
             - segment
 
+tium:
+  feedback:
+    # 1차 분석, 2차 평가 및 재시도 전체가 공유하는 예산이다.
+    request-timeout: 120s
+    http-retry-max-delay: 500ms
+
 server:
   port: ${SERVER_PORT:8080}
 
@@ -49,6 +57,8 @@ logging:
   level:
     # 변환 실패 시 모델 응답 원문을 출력하는 라이브러리 로그를 차단한다.
     org.springframework.ai.converter.BeanOutputConverter: 'OFF'
+    # 빈 choices의 WARN에 포함되는 대화 및 1차 분석 Prompt를 차단한다.
+    org.springframework.ai.openai.OpenAiChatModel: ERROR
   pattern:
     console: "%d{yyyy-MM-dd'T'HH:mm:ss.SSSXXX} %-5level [%thread] requestId=%X{requestId:-N/A} %logger{36} - %msg%n"
 

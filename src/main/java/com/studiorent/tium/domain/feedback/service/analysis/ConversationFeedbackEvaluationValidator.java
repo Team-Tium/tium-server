@@ -6,6 +6,7 @@ import com.studiorent.tium.domain.feedback.dto.analysis.ConversationFeedbackEval
 import com.studiorent.tium.domain.feedback.dto.analysis.ConversationFeedbackEvaluation.Evidence;
 import com.studiorent.tium.domain.feedback.dto.analysis.ConversationFeedbackEvaluation.Finding;
 import com.studiorent.tium.domain.feedback.dto.analysis.ConversationFeedbackEvaluation.Impact;
+import com.studiorent.tium.domain.feedback.dto.analysis.ConversationFeedbackEvaluation.ResponseAssessment;
 import com.studiorent.tium.domain.feedback.dto.analysis.ConversationFeedbackEvaluation.Strength;
 import com.studiorent.tium.global.exception.BusinessException;
 import com.studiorent.tium.global.response.code.status.ErrorStatus;
@@ -41,13 +42,14 @@ public class ConversationFeedbackEvaluationValidator {
 
     private ConversationFeedbackEvaluation validateEvaluation(
             List<Utterance> source, Speaker target, ConversationFeedbackEvaluation result, boolean filterUnlinkedStrengths) {
-        Map<String, Utterance> messages = validateSource(source, target);
+        var validatedSource = validateSource(source, target);
+        Map<String, Utterance> messages = validatedSource.messages();
         validateStructure(target, result);
         Set<String> targetIds = new HashSet<>();
         Set<String> otherIds = new HashSet<>();
         messages.forEach((id, message) -> (message.speaker() == target ? targetIds : otherIds).add(id));
 
-        var assessments = validateResponseAssessments(messages, targetIds, otherIds, result);
+        var assessments = validateResponseAssessments(validatedSource, targetIds, otherIds, result);
         var strengths = validateStrengths(messages, targetIds, result.strengths(),
                 assessments.helpfulTargetEvidence(), filterUnlinkedStrengths);
         validateAlternativesAndUncertainty(targetIds, result);
@@ -68,8 +70,9 @@ public class ConversationFeedbackEvaluationValidator {
         }
     }
 
-    private AssessmentSummary validateResponseAssessments(Map<String, Utterance> messages, Set<String> targetIds,
+    private AssessmentSummary validateResponseAssessments(ValidatedSource source, Set<String> targetIds,
                                                           Set<String> otherIds, ConversationFeedbackEvaluation result) {
+        Map<String, Utterance> messages = source.messages();
         boolean helpful = false;
         boolean unresolvedMinor = false;
         boolean major = false;
@@ -94,6 +97,9 @@ public class ConversationFeedbackEvaluationValidator {
                 if (item.impact() == Impact.NONE) {
                     throw invalidResponse();
                 }
+                if (item.resolved()) {
+                    validateResolutionEvidence(item, source.positions());
+                }
                 major |= item.impact() == Impact.MAJOR;
                 unresolvedMinor |= item.impact() == Impact.MINOR && !item.resolved();
             } else if (item.impact() != Impact.NONE || item.resolved()) {
@@ -102,6 +108,15 @@ public class ConversationFeedbackEvaluationValidator {
             helpful |= item.finding() == Finding.HELPFUL;
         }
         return new AssessmentSummary(helpful, unresolvedMinor, major, helpfulTargetEvidence);
+    }
+
+    private void validateResolutionEvidence(ResponseAssessment item, Map<String, Integer> positions) {
+        // 여러 발화를 함께 평가했다면 마지막 대상 발화 이후의 근거가 있어야 전체 항목의 해소를 허용한다.
+        int lastTargetPosition = item.targetMessageIds().stream().mapToInt(positions::get).max()
+                .orElseThrow(this::invalidResponse);
+        if (item.evidence().stream().noneMatch(evidence -> positions.get(evidence.messageId()) > lastTargetPosition)) {
+            throw invalidResponse();
+        }
     }
 
     private List<Strength> validateStrengths(Map<String, Utterance> messages, Set<String> targetIds,
@@ -152,11 +167,13 @@ public class ConversationFeedbackEvaluationValidator {
         }
     }
 
-    private Map<String, Utterance> validateSource(List<Utterance> source, Speaker target) {
+    private ValidatedSource validateSource(List<Utterance> source, Speaker target) {
         if (source == null || source.isEmpty() || target == null) {
             throw new BusinessException(ErrorStatus.FEEDBACK_ANALYSIS_INVALID_INPUT);
         }
         Map<String, Utterance> messages = new HashMap<>();
+        Map<String, Integer> positions = new HashMap<>();
+        int position = 0;
         boolean targetPresent = false;
         for (var message : source) {
             if (message == null || !validator.validate(message).isEmpty()) {
@@ -165,12 +182,16 @@ public class ConversationFeedbackEvaluationValidator {
             if (messages.putIfAbsent(message.messageId(), message) != null) {
                 throw new BusinessException(ErrorStatus.FEEDBACK_ANALYSIS_DUPLICATE_MESSAGE_ID);
             }
+            positions.put(message.messageId(), position++);
             targetPresent |= message.speaker() == target;
         }
         if (!targetPresent) {
             throw new BusinessException(ErrorStatus.FEEDBACK_ANALYSIS_TARGET_SPEAKER_MISSING);
         }
-        return messages;
+        return new ValidatedSource(messages, positions);
+    }
+
+    private record ValidatedSource(Map<String, Utterance> messages, Map<String, Integer> positions) {
     }
 
     private record AssessmentSummary(boolean helpful, boolean unresolvedMinor, boolean major,

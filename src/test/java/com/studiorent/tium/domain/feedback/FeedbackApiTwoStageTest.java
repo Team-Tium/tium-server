@@ -17,6 +17,10 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
+import org.junit.jupiter.params.provider.ValueSource;
+import org.mockito.ArgumentCaptor;
 import org.springframework.ai.chat.messages.AssistantMessage;
 import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.chat.model.ChatResponse;
@@ -87,7 +91,15 @@ class FeedbackApiTwoStageTest {
                 .setCustomArgumentResolvers(new AuthenticationPrincipalArgumentResolver()).build();
     }
     private ChatResponse response(Object value) {
-        return new ChatResponse(List.of(new Generation(new AssistantMessage(mapper.writeValueAsString(value)))));
+        return responseText(mapper.writeValueAsString(value));
+    }
+    private ChatResponse responseText(String value) {
+        return new ChatResponse(List.of(new Generation(new AssistantMessage(value))));
+    }
+    private tools.jackson.databind.JsonNode userPayload(Prompt prompt) {
+        return mapper.reader().without(tools.jackson.databind.DeserializationFeature.FAIL_ON_TRAILING_TOKENS)
+                .readTree(prompt.getInstructions().stream().map(message -> message.getText())
+                        .filter(text -> text.stripLeading().startsWith("{")).findFirst().orElseThrow());
     }
     private void successfulModel(boolean call) {
         var input = FeedbackTestData.input(call);
@@ -124,6 +136,108 @@ class FeedbackApiTwoStageTest {
         order.verify(repository).findByIdAndMemberIdAndCallIdAndCompletedFalse(CLAIM_ID, 1L, 10L);
         verify(repository, never()).deleteByIdAndMemberIdAndCallIdAndCompletedFalse(anyLong(), anyLong(), anyLong());
     }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"null", "JSON이 아닌 응답", "{}"})
+    void 분석_출력만_잘못되면_분석만_한번_재시도한_후_평가하고_저장한다(String invalidOutput) {
+        successfulModel(false);
+        var input = FeedbackTestData.input(false);
+        when(model.call(any(Prompt.class))).thenReturn(responseText(invalidOutput),
+                response(FeedbackTestData.analysis(input)), response(FeedbackTestData.evaluation(input)));
+
+        assertThat(command.createFeedback(1L, 10L).overallQuality()).isEqualTo("GOOD");
+
+        var captor = ArgumentCaptor.forClass(Prompt.class);
+        verify(model, times(3)).call(captor.capture());
+        assertThat(userPayload(captor.getAllValues().get(0))).isEqualTo(userPayload(captor.getAllValues().get(1)));
+        assertThat(userPayload(captor.getAllValues().get(2)).get("analysis"))
+                .isEqualTo(mapper.valueToTree(FeedbackTestData.analysis(input)));
+        assertThat(savedCompletionStates).containsExactly(true);
+    }
+
+    @Test void 분석의_근거_참조_검증_실패도_분석_단계만_재시도한다() {
+        successfulModel(false);
+        var input = FeedbackTestData.input(false);
+        var analysis = FeedbackTestData.analysis(input);
+        var invalid = new com.studiorent.tium.domain.feedback.dto.analysis.ConversationAnalysisResult(
+                analysis.contextSummary(), List.of("missing"), analysis.utterances(), analysis.uncertainties());
+        when(model.call(any(Prompt.class))).thenReturn(response(invalid), response(analysis), response(FeedbackTestData.evaluation(input)));
+
+        assertThat(command.createFeedback(1L, 10L).overallQuality()).isEqualTo("GOOD");
+
+        verify(model, times(3)).call(any(Prompt.class));
+        assertThat(savedCompletionStates).containsExactly(true);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"null", "JSON이 아닌 응답", "{}"})
+    void 평가_출력만_잘못되면_검증된_동일_분석으로_평가만_한번_재시도한다(String invalidOutput) {
+        successfulModel(true);
+        var input = FeedbackTestData.input(true);
+        when(model.call(any(Prompt.class))).thenReturn(response(FeedbackTestData.analysis(input)),
+                responseText(invalidOutput), response(FeedbackTestData.evaluation(input)));
+
+        assertThat(command.createCallFeedback(1L, 10L).overallQuality()).isEqualTo("GOOD");
+
+        var captor = ArgumentCaptor.forClass(Prompt.class);
+        verify(model, times(3)).call(captor.capture());
+        var firstEvaluation = userPayload(captor.getAllValues().get(1));
+        var retriedEvaluation = userPayload(captor.getAllValues().get(2));
+        assertThat(firstEvaluation).isEqualTo(retriedEvaluation);
+        assertThat(retriedEvaluation.get("analysis")).isEqualTo(mapper.valueToTree(FeedbackTestData.analysis(input)));
+        assertThat(savedCompletionStates).containsExactly(false);
+        assertThat(managedCallClaim.getCompleted()).isTrue();
+        verify(repository, never()).deleteByIdAndMemberIdAndCallIdAndCompletedFalse(anyLong(), anyLong(), anyLong());
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void 두_단계가_각각_한번_재시도하면_총_4회_모델_호출한_뒤_완료한다(boolean call) {
+        successfulModel(call);
+        var input = FeedbackTestData.input(call);
+        when(model.call(any(Prompt.class))).thenReturn(response(null), response(FeedbackTestData.analysis(input)),
+                response(null), response(FeedbackTestData.evaluation(input)));
+
+        var result = call ? command.createCallFeedback(1L, 10L) : command.createFeedback(1L, 10L);
+
+        assertThat(result.overallQuality()).isEqualTo("GOOD");
+        verify(model, times(4)).call(any(Prompt.class));
+        assertThat(savedCompletionStates).containsExactly(!call);
+        if (call) assertThat(managedCallClaim.getCompleted()).isTrue();
+    }
+
+    @Test void 서버_분석_입력이_잘못되면_재시도하거나_모델을_호출하지_않는다() {
+        clearInvocations(model);
+
+        assertThatThrownBy(() -> pipeline.generate(null)).isInstanceOfSatisfying(BusinessException.class,
+                e -> assertThat(e.getBaseCode()).isEqualTo(ErrorStatus.FEEDBACK_ANALYSIS_INVALID_INPUT));
+
+        verifyNoInteractions(model);
+        assertThat(savedCompletionStates).isEmpty();
+    }
+
+    @ParameterizedTest
+    @EnumSource(value = ErrorStatus.class, names = {
+            "FEEDBACK_ANALYSIS_API_AUTH_FAILED", "FEEDBACK_ANALYSIS_API_RATE_LIMITED",
+            "FEEDBACK_ANALYSIS_API_TIMEOUT", "FEEDBACK_ANALYSIS_API_CONNECTION_FAILED",
+            "FEEDBACK_EVALUATION_API_AUTH_FAILED", "FEEDBACK_EVALUATION_API_RATE_LIMITED",
+            "FEEDBACK_EVALUATION_API_TIMEOUT", "FEEDBACK_EVALUATION_API_CONNECTION_FAILED"})
+    void 전송_계층에서_반환한_API_오류는_출력_재시도로_반복하지_않는다(ErrorStatus errorStatus) {
+        successfulModel(false);
+        var failure = new BusinessException(errorStatus);
+        boolean evaluationFailed = errorStatus.name().startsWith("FEEDBACK_EVALUATION_");
+        if (evaluationFailed) {
+            when(model.call(any(Prompt.class))).thenReturn(response(FeedbackTestData.analysis(FeedbackTestData.input(false))))
+                    .thenThrow(failure);
+        } else {
+            when(model.call(any(Prompt.class))).thenThrow(failure);
+        }
+
+        assertThatThrownBy(() -> command.createFeedback(1L, 10L)).isSameAs(failure);
+
+        verify(model, times(evaluationFailed ? 2 : 1)).call(any(Prompt.class));
+        assertThat(savedCompletionStates).isEmpty();
+    }
     @Test void 기존_완료_통화_피드백은_재호출없이_반환한다() {
         var feedback = Feedback.builder().memberId(1L).callId(10L).completed(true)
                 .overallQuality(com.studiorent.tium.domain.feedback.entity.enums.OverallQuality.GOOD)
@@ -147,23 +261,23 @@ class FeedbackApiTwoStageTest {
         assertThatThrownBy(() -> command.createFeedback(1L, 10L)).isInstanceOf(BusinessException.class);
         verifyNoInteractions(model); assertThat(savedCompletionStates).isEmpty();
     }
-    @Test void 채팅의_1차_실패는_2차와_완료_저장을_막는다() {
+    @Test void 채팅의_1차가_재시도에도_실패하면_2차와_완료_저장을_막는다() {
         successfulModel(false); when(model.call(any(Prompt.class))).thenReturn(response(null));
         assertThatThrownBy(() -> command.createFeedback(1L, 10L)).isInstanceOf(BusinessException.class);
-        verify(model).call(any(Prompt.class)); assertThat(savedCompletionStates).isEmpty();
+        verify(model, times(2)).call(any(Prompt.class)); assertThat(savedCompletionStates).isEmpty();
     }
-    @Test void 통화의_1차_실패는_2차를_호출하지_않고_선점을_해제한다() {
+    @Test void 통화의_1차가_재시도에도_실패하면_2차를_호출하지_않고_선점을_해제한다() {
         successfulModel(true); when(model.call(any(Prompt.class))).thenReturn(response(null));
         assertThatThrownBy(() -> command.createCallFeedback(1L, 10L)).isInstanceOf(BusinessException.class);
-        verify(model).call(any(Prompt.class)); assertThat(savedCompletionStates).containsExactly(false);
+        verify(model, times(2)).call(any(Prompt.class)); assertThat(savedCompletionStates).containsExactly(false);
         verify(repository).deleteByIdAndMemberIdAndCallIdAndCompletedFalse(CLAIM_ID, 1L, 10L);
     }
-    @Test void 통화의_2차_검증_실패도_완료_저장없이_선점을_해제한다() {
+    @Test void 통화의_2차가_재시도에도_실패하면_완료_저장없이_선점을_해제한다() {
         successfulModel(true);
         when(model.call(any(Prompt.class))).thenReturn(response(FeedbackTestData.analysis(FeedbackTestData.input(true))), response(null));
         assertThatThrownBy(() -> command.createCallFeedback(1L, 10L)).isInstanceOfSatisfying(BusinessException.class,
                 e -> assertThat(e.getBaseCode()).isEqualTo(ErrorStatus.FEEDBACK_EVALUATION_INVALID_RESPONSE));
-        verify(model, times(2)).call(any(Prompt.class)); assertThat(savedCompletionStates).containsExactly(false);
+        verify(model, times(3)).call(any(Prompt.class)); assertThat(savedCompletionStates).containsExactly(false);
         verify(repository).deleteByIdAndMemberIdAndCallIdAndCompletedFalse(CLAIM_ID, 1L, 10L);
     }
     @Test void 만료로_교체된_선점에는_완료_결과를_저장하지_않는다() {
@@ -196,10 +310,10 @@ class FeedbackApiTwoStageTest {
         assertThat(savedCompletionStates).containsExactly(false);
         assertThat(managedCallClaim.getCompleted()).isFalse();
     }
-    @Test void 채팅의_2차_실패는_완료_피드백을_저장하지_않는다() {
+    @Test void 채팅의_2차가_재시도에도_실패하면_완료_피드백을_저장하지_않는다() {
         successfulModel(false);
         when(model.call(any(Prompt.class))).thenReturn(response(FeedbackTestData.analysis(FeedbackTestData.input(false))), response(null));
         assertThatThrownBy(() -> command.createFeedback(1L, 10L)).isInstanceOf(BusinessException.class);
-        verify(model, times(2)).call(any(Prompt.class)); assertThat(savedCompletionStates).isEmpty();
+        verify(model, times(3)).call(any(Prompt.class)); assertThat(savedCompletionStates).isEmpty();
     }
 }

@@ -14,6 +14,7 @@ import com.studiorent.tium.domain.feedback.repository.FeedbackRepository;
 import com.studiorent.tium.global.exception.BusinessException;
 import com.studiorent.tium.global.response.code.status.ErrorStatus;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -67,6 +68,10 @@ public class CallSttQueryServiceImpl implements CallSttQueryService {
                 otherJob,
                 feedbackCreated,
                 feedbackGenerating);
+        if (status == CallFeedbackStatus.READY
+                && !containsTargetSpeaker(findFeedbackSegments(callId), memberId)) {
+            status = CallFeedbackStatus.TARGET_SPEAKER_MISSING;
+        }
         boolean feedbackReady = status == CallFeedbackStatus.READY;
 
         return new CallSttResponseDTO.Status(
@@ -84,21 +89,33 @@ public class CallSttQueryServiceImpl implements CallSttQueryService {
     @Override
     @Transactional(readOnly = true)
     public List<CallSttSegment> findSegmentsForFeedback(Long memberId, Long callId) {
-        callAccessValidator.validateParticipant(callId, memberId);
-
-        List<CallSttSegment> segments = findSegments(callId);
-        long speakerCount = segments.stream()
-                .map(CallSttSegment::getSpeakerUserId)
-                .distinct()
-                .count();
-
-        if (speakerCount < 2) {
-            throw new BusinessException(ErrorStatus.CALL_STT_NOT_READY);
+        Call call = callAccessValidator.validateParticipant(callId, memberId);
+        List<CallSttSegment> segments = findFeedbackSegments(callId);
+        if (segments.isEmpty()) {
+            throw new BusinessException(ErrorStatus.CALL_STT_NOT_FOUND);
         }
 
-        // 양쪽 STT 준비 여부는 전체에서 확인하고, 평가에는 시간순 목록의 마지막 200개만 사용한다.
-        int fromIndex = Math.max(0, segments.size() - FEEDBACK_UTTERANCE_LIMIT);
-        return List.copyOf(segments.subList(fromIndex, segments.size()));
+        // 양쪽 STT 저장 여부는 전체 통화에서 확인한다. 상대 발화까지 최근 범위에 있을 필요는 없다.
+        if (!callSttSegmentRepository.existsByCallIdAndSpeakerUserId(callId, memberId)
+                || !callSttSegmentRepository.existsByCallIdAndSpeakerUserId(callId, getOpponentId(call, memberId))) {
+            throw new BusinessException(ErrorStatus.CALL_STT_NOT_READY);
+        }
+        if (!containsTargetSpeaker(segments, memberId)) {
+            throw new BusinessException(ErrorStatus.FEEDBACK_ANALYSIS_TARGET_SPEAKER_MISSING);
+        }
+
+        return segments;
+    }
+
+    private List<CallSttSegment> findFeedbackSegments(Long callId) {
+        // 상태 조회와 생성 요청이 동일한 최근 200개를 사용하며, 분석 입력은 시간순으로 전달한다.
+        List<CallSttSegment> segments = callSttSegmentRepository.findByCallIdOrderByStartedAtMsDescIdDesc(
+                callId, PageRequest.of(0, FEEDBACK_UTTERANCE_LIMIT));
+        return List.copyOf(segments.reversed());
+    }
+
+    private static boolean containsTargetSpeaker(List<CallSttSegment> segments, Long memberId) {
+        return segments.stream().anyMatch(segment -> memberId.equals(segment.getSpeakerUserId()));
     }
 
     private List<CallSttSegment> findSegments(Long callId) {
@@ -209,6 +226,9 @@ public class CallSttQueryServiceImpl implements CallSttQueryService {
         }
         if (status == CallFeedbackStatus.READY) {
             return "대화 내용 분석이 완료되었습니다.";
+        }
+        if (status == CallFeedbackStatus.TARGET_SPEAKER_MISSING) {
+            return "최근 200개 발화에 본인의 발화가 없어 피드백을 생성할 수 없습니다.";
         }
         if (status == CallFeedbackStatus.ANALYZING) {
             return "대화 내용을 분석 중입니다.";

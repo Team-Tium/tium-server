@@ -25,13 +25,20 @@ class ConversationFeedbackEvaluationValidatorTest {
     private final List<Utterance> source = List.of(new Utterance("m1", Speaker.OTHER, "일이 힘들어."),
             new Utterance("m2", Speaker.ME, "상황을 더 이야기해줄래?"));
     private final Evidence evidence = new Evidence("m2", "상황을 더 이야기해줄래?");
+    private final Utterance followUp = new Utterance("m0", Speaker.OTHER, "이제 이해했어.");
+    private final Evidence followUpEvidence = new Evidence(followUp.messageId(), followUp.text());
+    private final List<Utterance> sourceWithFollowUp = List.of(source.getFirst(), source.getLast(), followUp);
 
     @AfterAll
     static void closeFactory() { FACTORY.close(); }
 
     private ResponseAssessment assessment(Finding finding, Impact impact, boolean resolved) {
+        return assessment(finding, impact, resolved, List.of(evidence));
+    }
+
+    private ResponseAssessment assessment(Finding finding, Impact impact, boolean resolved, List<Evidence> evidence) {
         return new ResponseAssessment(List.of("m2"), List.of("m1"), "상황 확인", finding, impact, resolved,
-                List.of(evidence), "상대가 말한 어려움의 상황을 확인한다.");
+                evidence, "상대가 말한 어려움의 상황을 확인한다.");
     }
 
     private ConversationFeedbackEvaluation result(OverallQuality grade, List<ResponseAssessment> items,
@@ -42,10 +49,18 @@ class ConversationFeedbackEvaluationValidatorTest {
     }
 
     private void valid(ConversationFeedbackEvaluation result) {
+        valid(source, result);
+    }
+
+    private void valid(List<Utterance> source, ConversationFeedbackEvaluation result) {
         assertThatCode(() -> validator.validateResult(source, Speaker.ME, result)).doesNotThrowAnyException();
     }
 
     private void invalid(ConversationFeedbackEvaluation result) {
+        invalid(source, result);
+    }
+
+    private void invalid(List<Utterance> source, ConversationFeedbackEvaluation result) {
         assertThatThrownBy(() -> validator.validateResult(source, Speaker.ME, result))
                 .isInstanceOfSatisfying(BusinessException.class, ex -> assertThat(ex.getBaseCode())
                         .isEqualTo(ErrorStatus.FEEDBACK_EVALUATION_INVALID_RESPONSE));
@@ -82,8 +97,9 @@ class ConversationFeedbackEvaluationValidatorTest {
     @ParameterizedTest
     @EnumSource(OverallQuality.class)
     void MAJOR가_확인되면_BAD만_허용한다(OverallQuality grade) {
-        var value = result(grade, List.of(assessment(Finding.NEEDS_IMPROVEMENT, Impact.MAJOR, true)), false, List.of(), List.of());
-        if (grade == OverallQuality.BAD) valid(value); else invalid(value);
+        var value = result(grade, List.of(assessment(Finding.NEEDS_IMPROVEMENT, Impact.MAJOR, true,
+                List.of(evidence, followUpEvidence))), false, List.of(), List.of());
+        if (grade == OverallQuality.BAD) valid(sourceWithFollowUp, value); else invalid(sourceWithFollowUp, value);
     }
 
     @Test
@@ -93,10 +109,62 @@ class ConversationFeedbackEvaluationValidatorTest {
         invalid(result(OverallQuality.AMBIGUOUS, items, false, List.of(), List.of()));
     }
 
+    @ParameterizedTest
+    @EnumSource(Speaker.class)
+    void 해소된_MINOR는_ID가_작아도_원문_순서상_뒤인_근거가_있으면_GOOD과_함께_허용한다(Speaker speaker) {
+        var extended = List.of(source.getFirst(), source.getLast(), new Utterance("m0", speaker, followUp.text()));
+        valid(extended, result(OverallQuality.GOOD, List.of(assessment(Finding.HELPFUL, Impact.NONE, false),
+                assessment(Finding.NEEDS_IMPROVEMENT, Impact.MINOR, true, List.of(evidence, followUpEvidence))),
+                false, List.of(), List.of()));
+    }
+
+    @ParameterizedTest
+    @EnumSource(value = Impact.class, names = {"MINOR", "MAJOR"})
+    void 해소_근거가_대상_발화와_이전_발화뿐이면_거절한다(Impact impact) {
+        var items = List.of(assessment(Finding.HELPFUL, Impact.NONE, false),
+                assessment(Finding.NEEDS_IMPROVEMENT, impact, true,
+                        List.of(new Evidence("m1", "일이 힘들어."), evidence)));
+        invalid(result(impact == Impact.MAJOR ? OverallQuality.BAD : OverallQuality.GOOD,
+                items, false, List.of(), List.of()));
+    }
+
     @Test
-    void 해소된_MINOR는_근거있는_GOOD과_함께_허용한다() {
-        valid(result(OverallQuality.GOOD, List.of(assessment(Finding.HELPFUL, Impact.NONE, false),
-                assessment(Finding.NEEDS_IMPROVEMENT, Impact.MINOR, true)), false, List.of(), List.of()));
+    void 후속_발화가_존재해도_해소_근거에_포함하지_않으면_거절한다() {
+        invalid(sourceWithFollowUp, result(OverallQuality.GOOD,
+                List.of(assessment(Finding.HELPFUL, Impact.NONE, false),
+                        assessment(Finding.NEEDS_IMPROVEMENT, Impact.MINOR, true)), false, List.of(), List.of()));
+    }
+
+    @Test
+    void 복수_대상_중_마지막_발화_이전의_근거만으로_해소를_인정하지_않는다() {
+        var extended = List.of(source.getFirst(), source.getLast(), new Utterance("m0", Speaker.OTHER, "이제 이해했어."),
+                new Utterance("m3", Speaker.ME, "아직 궁금한 게 있어."));
+        var resolved = new ResponseAssessment(List.of("m3", "m2"), List.of("m1"), "상황 확인",
+                Finding.NEEDS_IMPROVEMENT, Impact.MINOR, true,
+                List.of(evidence, new Evidence("m0", "이제 이해했어."), new Evidence("m3", "아직 궁금한 게 있어.")), "해소됐다고 주장한다.");
+        invalid(extended, result(OverallQuality.GOOD,
+                List.of(assessment(Finding.HELPFUL, Impact.NONE, false), resolved), false, List.of(), List.of()));
+    }
+
+    @Test
+    void 복수_대상의_마지막_발화보다_뒤인_해소_근거가_있으면_허용한다() {
+        var lastTarget = new Utterance("m3", Speaker.ME, "다시 설명할게.");
+        var extended = List.of(source.getFirst(), source.getLast(), lastTarget, followUp);
+        var resolved = new ResponseAssessment(List.of("m3", "m2"), List.of("m1"), "상황 확인",
+                Finding.NEEDS_IMPROVEMENT, Impact.MINOR, true,
+                List.of(evidence, new Evidence(lastTarget.messageId(), lastTarget.text()), followUpEvidence), "후속 반응에서 확인한다.");
+
+        valid(extended, result(OverallQuality.GOOD,
+                List.of(assessment(Finding.HELPFUL, Impact.NONE, false), resolved), false, List.of(), List.of()));
+    }
+
+    @Test
+    void 후속_근거가_있어도_resolved가_false면_MINOR를_자동_해소하지_않는다() {
+        var items = List.of(assessment(Finding.HELPFUL, Impact.NONE, false),
+                assessment(Finding.NEEDS_IMPROVEMENT, Impact.MINOR, false, List.of(evidence, followUpEvidence)));
+
+        valid(sourceWithFollowUp, result(OverallQuality.AMBIGUOUS, items, false, List.of(), List.of()));
+        invalid(sourceWithFollowUp, result(OverallQuality.GOOD, items, false, List.of(), List.of()));
     }
 
     @Test

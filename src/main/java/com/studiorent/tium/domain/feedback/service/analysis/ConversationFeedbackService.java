@@ -5,16 +5,17 @@ import com.studiorent.tium.domain.feedback.dto.analysis.ConversationAnalysisInpu
 import com.studiorent.tium.domain.feedback.dto.v1.FeedbackResponseDTOv1;
 import com.studiorent.tium.global.exception.BusinessException;
 import com.studiorent.tium.global.response.code.status.ErrorStatus;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
+import java.time.Duration;
 import java.util.Set;
 import java.util.function.Supplier;
 
 /** 분석·검증이 성공한 뒤에만 평가를 호출한다. 저장은 command 서비스가 담당한다. */
 @Service
-@RequiredArgsConstructor
 @Slf4j
 public class ConversationFeedbackService {
     private static final Set<ErrorStatus> RETRYABLE_ANALYSIS_OUTPUT_ERRORS = Set.of(
@@ -36,8 +37,30 @@ public class ConversationFeedbackService {
 
     private final ConversationAnalysisService analysisService;
     private final ConversationFeedbackEvaluationService evaluationService;
+    private final Duration requestTimeout;
+
+    public ConversationFeedbackService(ConversationAnalysisService analysisService,
+            ConversationFeedbackEvaluationService evaluationService) {
+        this(analysisService, evaluationService, Duration.ofSeconds(120));
+    }
+
+    @Autowired
+    public ConversationFeedbackService(ConversationAnalysisService analysisService,
+            ConversationFeedbackEvaluationService evaluationService,
+            @Value("${tium.feedback.request-timeout:120s}") Duration requestTimeout) {
+        if (requestTimeout == null || requestTimeout.isZero() || requestTimeout.isNegative()) {
+            throw new IllegalArgumentException("Feedback timeout must be positive");
+        }
+        this.analysisService = analysisService;
+        this.evaluationService = evaluationService;
+        this.requestTimeout = requestTimeout;
+    }
 
     public FeedbackResponseDTOv1 generate(ConversationAnalysisInput input) {
+        return FeedbackRequestDeadline.within(requestTimeout, () -> generateWithinBudget(input));
+    }
+
+    private FeedbackResponseDTOv1 generateWithinBudget(ConversationAnalysisInput input) {
         var analysis = withOutputValidationRetry(() -> analysisService.analyze(input), RETRYABLE_ANALYSIS_OUTPUT_ERRORS);
         var evaluation = withOutputValidationRetry(() -> evaluationService.evaluate(input, analysis), RETRYABLE_EVALUATION_OUTPUT_ERRORS);
         return FeedbackConverter.fromEvaluation(evaluation, input.scope());

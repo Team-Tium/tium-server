@@ -192,7 +192,7 @@ class FeedbackApiTwoStageTest {
 
     @ParameterizedTest
     @ValueSource(booleans = {false, true})
-    void 두_단계가_각각_한번_재시도하면_총_4회_호출한_뒤_완료한다(boolean call) {
+    void 두_단계가_각각_한번_재시도하면_총_4회_모델_호출한_뒤_완료한다(boolean call) {
         successfulModel(call);
         var input = FeedbackTestData.input(call);
         when(model.call(any(Prompt.class))).thenReturn(response(null), response(FeedbackTestData.analysis(input)),
@@ -222,7 +222,7 @@ class FeedbackApiTwoStageTest {
             "FEEDBACK_ANALYSIS_API_TIMEOUT", "FEEDBACK_ANALYSIS_API_CONNECTION_FAILED",
             "FEEDBACK_EVALUATION_API_AUTH_FAILED", "FEEDBACK_EVALUATION_API_RATE_LIMITED",
             "FEEDBACK_EVALUATION_API_TIMEOUT", "FEEDBACK_EVALUATION_API_CONNECTION_FAILED"})
-    void API_오류는_단계와_관계없이_재시도하지_않는다(ErrorStatus errorStatus) {
+    void 전송_계층에서_반환한_API_오류는_출력_재시도로_반복하지_않는다(ErrorStatus errorStatus) {
         successfulModel(false);
         var failure = new BusinessException(errorStatus);
         boolean evaluationFailed = errorStatus.name().startsWith("FEEDBACK_EVALUATION_");

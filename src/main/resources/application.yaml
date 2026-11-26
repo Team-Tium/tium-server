@@ -32,7 +32,9 @@ spring:
       api-key: ${OPENAI_API_KEY}
       chat:
         model: ${OPENAI_CHAT_MODEL:gpt-5.6-sol}
-        max-retries: 0
+        # 시간 예산을 공유하는 HTTP 전송 계층에서 일시적 오류만 한 번 재시도한다.
+        max-retries: 1
+        timeout: 60s
       audio:
         transcription:
           model: whisper-1
@@ -41,6 +43,12 @@ spring:
           temperature: 0
           timestamp-granularities:
             - segment
+
+tium:
+  feedback:
+    # 1차 분석, 2차 평가 및 재시도 전체가 공유하는 예산이다.
+    request-timeout: 120s
+    http-retry-max-delay: 500ms
 
 server:
   port: ${SERVER_PORT:8080}
